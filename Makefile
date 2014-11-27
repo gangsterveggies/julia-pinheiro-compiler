@@ -1,11 +1,13 @@
 default:
-	rm -f *.hs
+	rm -f Lexer.hs
+	rm -f Parser.hs
 	alex Lexer.x
-	happy julia.y
-	ghc -o julia Lexer.hs julia.hs
+	happy Parser.y
+	ghc -o julia Lexer.hs Parser.hs julia.hs
 
 clean:
-	rm -f *.hs
+	rm -f Lexer.hs
+	rm -f Parser.hs
 	rm -f *.hi
 	rm -f *.o
 	rm -f julia
