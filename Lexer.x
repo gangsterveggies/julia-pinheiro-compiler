@@ -9,12 +9,6 @@ $alpha = [a-zA-Z]
 
 tokens :-
 
-    -- Types and Variables
-  $digit+				{ \p s -> TokenInt p (read s) }
-  $digit+.$digit			{ \p s -> TokenFloat p (read s) }
-  true                                  { \p s -> TokenBool p True }
-  false                                 { \p s -> TokenBool p False }
-  $alpha [$alpha $digit \_ !]*		{ \p s -> TokenVar p s }
     -- Arithmetic Expressions
   \+                                    { \p s -> TokenAdd p }
   \-                                    { \p s -> TokenSub p }
@@ -26,6 +20,9 @@ tokens :-
   \)                                    { \p s -> TokenRB p }
     -- Boolean Expressions
   \!                                    { \p s -> TokenBolNot p }
+  \|\|                                  { \p s -> TokenBolAnd p }
+  \&\&                                  { \p s -> TokenBolOr p }
+    -- Boolean Comparisons
   \=\=                                  { \p s -> TokenEq p }
   \!\=                                  { \p s -> TokenNotEq p }
   \<                                    { \p s -> TokenLss p }
@@ -35,7 +32,7 @@ tokens :-
     -- Methods
   println                               { \p s -> TokenPrintln p }
     -- Attributions
-  \=                                    { \p s -> TokenEq p }
+  \=                                    { \p s -> TokenAtr p }
     -- Ifs
   if                                    { \p s -> TokenIf p }
   elseif                                { \p s -> TokenElseIf p }
@@ -43,9 +40,17 @@ tokens :-
     -- While
   while                                 { \p s -> TokenWhile p }
     -- Miscelaneous
+  \,                                    { \p s -> TokenComma p }
   end                                   { \p s -> TokenEnd p }
   \;                                    { \p s -> TokenSep p }
   \n                                    { \p s -> TokenLC p }
+    -- Types and Variables
+  $digit+				{ \p s -> TokenInt p (read s) }
+  $digit+\.$digit			{ \p s -> TokenFloat p (read s) }
+  true                                  { \p s -> TokenBool p True }
+  false                                 { \p s -> TokenBool p False }
+  $alpha [$alpha $digit \_ !]*		{ \p s -> TokenVar p s }
+
   $white+				;
 {
 
@@ -64,6 +69,9 @@ data Token = TokenInt AlexPosn Int -- Types and Variables
            | TokenRB AlexPosn -- )
              -- Boolean Expressions
            | TokenBolNot AlexPosn -- !
+           | TokenBolAnd AlexPosn -- &&
+           | TokenBolOr AlexPosn -- ||
+             -- Boolean Comparisons
            | TokenEq AlexPosn     -- ==
            | TokenNotEq AlexPosn  -- !=
            | TokenLss AlexPosn    -- <
@@ -81,6 +89,7 @@ data Token = TokenInt AlexPosn Int -- Types and Variables
              -- While
            | TokenWhile AlexPosn
              -- Miscelaneous
+           | TokenComma AlexPosn
            | TokenEnd AlexPosn
            | TokenSep AlexPosn -- ;
            | TokenLC  AlexPosn -- \n
@@ -101,6 +110,9 @@ tokenPosn (TokenLB p) = p
 tokenPosn (TokenRB p) = p
              -- Boolean Expressions
 tokenPosn (TokenBolNot p) = p
+tokenPosn (TokenBolAnd p) = p
+tokenPosn (TokenBolOr p) = p
+             -- Boolean Comparisons
 tokenPosn (TokenEq p) = p
 tokenPosn (TokenNotEq p) = p
 tokenPosn (TokenLss p) = p
@@ -118,6 +130,7 @@ tokenPosn (TokenElse p) = p
              -- While
 tokenPosn (TokenWhile p) = p
              -- Miscelaneous
+tokenPosn (TokenComma p) = p
 tokenPosn (TokenEnd p) = p
 tokenPosn (TokenSep p) = p
 tokenPosn (TokenLC p) = p
