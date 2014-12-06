@@ -1,95 +1,44 @@
 module Main where
 import Lexer
 import Parser
+import TCompile
+import qualified Data.Map as HashTable
 
-data Ops = BBi BoolOpsBi | BUi BoolOpsUn | Cmp CompOps
-data Op = OpAdd | OpMul | OpAt | OpJp | OpLb | OpIfFalse
-data Value = Num Int | TVar String | Label String | Null
-type Code = (Op, Value, Value, Value)
+type HashTable = HashTable.Map String Int
 
-compileCmd :: Int -> Cmd -> ([Code], Int)
-compileCmd lbNum (While exp cmd) = ([(OpLb, Label (show lbNum), Null, Null)]
-                                   ++ expCode
-                                   ++ [(OpIfFalse, TVar expVar, Label (show (lbNum + 1)), Null)]
-                                   ++ code
-                                   ++ [(OpJp, Label (show lbNum), Null, Null)]
-                                   ++ [(OpLb, Label (show (lbNum + 1)), Null, Null)], lbNum1 + 1)
-    where (expCode, expVar, _) = compileExpBool 0 exp
-          (code, lbNum1) = compileCmd (lbNum + 2) cmd
-compileCmd lbNum (Attr (Var var) exp) = (expCode ++ [(OpAt, TVar var, TVar expVar, Null)], lbNum)
-    where (expCode, expVar, _) = compileExp 0 exp
-compileCmd lbNum (IfCmd iflist) = (ifcode, lbNum1)
-    where (ifCode, lbNum1) = compileIfList lbNum1 iflist
-compileCmd lbNum (Seq cmd1 cmd2) = (code1 ++ code2, lbNum2)
-    where (code1, lbNum1) = compileCmd lbNum cmd1
-          (code2, lbNum2) = compileCmd lbNum1 cmd2
-compileCmd lbNum None = ([], lbNum)
+fromJust :: Maybe b -> b
+fromJust Nothing = error "ERROR: variable not defined"
+fromJust (Just x) = x
 
-compileIfList :: Int -> IfList -> ([Code], Int)
-compileIfList lbNum (If ifArr elseCmd) = (ifsCode
-                                          ++ [(OpLb, Label (show lbNum1), Null, Null)]
-                                          ++ elseCode
-                                          ++ [(OpLb, Label (show lbNum), Null, Null)], lbNum2)
-    where (ifsCode, lbNum1) = compileIfs lbNum ifArr (lbNum + 1)
-          (elsecode, lbNum2) = compileCmd elseCmd (lbNum1 + 1)
+mipsify :: HashTable -> Int -> [Code] -> String
+mipsify _ _ [] = ""
+mipsify hs maxN (x:xs) = mCode ++ (mipsify hs1 maxN1 xs)
+  where (mCode, hs1, maxN1) = translate hs maxN x
 
-compileIfs :: Int -> [(ExprBool, Command)] -> Int -> ([Code], Int)
-compileIfs endLb [] lbNum = ([], lbNum)
-compileIfs endLb (x:xs) lbNum = (expCode
-                                 ++ [(OpIfFalse, TVar expVar, Label (show lbNum), Null)]
-                                 ++ cmdCode
-                                 ++ [(OpJp, Label (show endLb), Null, Null)]
-                                 ++ [(OpLb, Label (show lbNum), Null, Null)]
-                                 ++ ifsCode, lbNumF)
-    where (expCode, expVar) = compileBoolExp 0 (fst x)
-          (cmdCode, lbNum1) = compileCmd (lbNum + 1) (snd x)
-          (ifsCode, lbNumF) = compileIfs endLb xs lbNum1
+translate :: HashTable -> Int -> Code -> (String, HashTable, Int)
+translate hs maxN (OpAt, TVar x, p, Null) = (getCode1 ++ getCode2 ++ "sw $t1, ($t0)\n", hs1, maxN1)
+  where getCode1 = getValue hs maxN "$t1" p
+        (getCode2, hs1, maxN1) = setVariable hs maxN "$t0" x
 
-newVar :: Int -> String
-newVar nx = (show nx) ++ "t"
+setVariable :: HashTable -> Int -> String -> String -> (String, HashTable, Int)
+setVariable hs maxN register var
+  | varV == Nothing = ("addi $sp, $sp, -4\n" ++ "la " ++ register ++ ", 0($sp)\n", (HashTable.insert var maxN hs), maxN + 1)
+  | otherwise = let varN = 4 * (maxN - 1 - fromJust(varV))
+                in ("la " ++ register ++ ", " ++ (show varN) ++ "($sp)\n", hs, maxN)
+  where varV = HashTable.lookup var hs
 
-getOp :: Ops -> Op
+getVariable :: HashTable -> Int -> String -> Int
+getVariable hs maxN var = 4 * (maxN - 1 - fromJust(HashTable.lookup var hs))
 
-compileExp :: Int -> Expr -> (String, [Code], Int)
-compileExp nx (ExprBool exp) = compileExpBool nx exp
-compileExp nx (ExprNum exp) = compileExpNum nx exp
-
-compileExpBool :: Int -> ExprBool -> (String, [Code], Int)
-compileExpBool nx (BoolConst True) = (var, [(OpAt, TVar var, Num 1, Null)], nx + 1)
-    where var = newVar nx
-compileExpBool nx (BoolConst False) = (var, [(OpAt, TVar var, Num 0, Null)], nx + 1)
-    where var = newVar nx
-compileExpBool nx (BoolVar var) = (var, [], nx)
-compileExpBool nx (Operation1 exp1 opBi exp2) = cexp1
-                                                ++ cexp2
-                                                ++ (var, [(getOp(opBi), TVar var, TVar var1, TVar var2)], nx2 + 1)
-    where (var1, cexp1, nx1) = compileExpBool nx exp1
-          (var2, cexp2, nx2) = compileExpBool nx1 exp2
-          var = newVar nx2
-compileExpBool nx (Operation2 opUn exp1) = cexp1
-                                           ++ (var, [(getOp(opBi), TVar var, TVar var1, Null)], nx1 + 1)
-    where (var1, cexp1, nx1) = compileExpBool nx exp1
-          var = newVar nx1
-compileExpBool nx (Operation3 exp1 opCp exp2) = cexp1
-                                                ++ cexp2
-                                                ++ (var, [(getOp(opCp), TVar var, TVar var1, TVar var2)], nx2 + 1)
-    where (var1, cexp1, nx1) = compileExpNum nx exp1
-          (var2, cexp2, nx2) = compileExpNum nx1 exp2
-          var = newVar nx2
-
-compileExpNum :: Int -> ExprNum -> (String, [Code], Int)
-compileExpNum nx (NumConst num) = (var, [(OpAt, var, Num num, Null, Null)], nx + 1)
-    where var = newVar nx
-compileExpNum nx (NumVar var) = (var, [], nx)
-compileExpNum nx (Operation exp1 opNm exp2) = cexp1
-                                              ++ cexp2
-                                              ++ (var, [(getOp(opNm), TVar var, TVar var1, TVar var2)], nx2 + 1)
-    where (var1, cexp1, nx1) = compileExpNum nx exp1
-          (var2, cexp2, nx2) = compileExpNum nx1 exp2
-          var = newVar nx2
+getValue :: HashTable -> Int -> String -> Value -> String
+getValue _ _ register (Num a) = "li " ++ register ++ ", " ++ (show a) ++ "\n"
+getValue hs maxN register (TVar a) = "lw " ++ register ++ ", " ++ (show var) ++ "($sp)\n"
+  where var = getVariable hs maxN a
 
 main = do
   inStr <- getContents
-  let parseTree = compileCmd(parse(alexScanTokensWrapper inStr))
-  putStrLn (show(parseTree))
-  print "done"
+  let hs =  HashTable.empty
+  let mipsCode = mipsify hs 0 (fst(compileCmd 0 (parse(alexScanTokensWrapper inStr))))
+--  let parseTree = fst(compileCmd 0 (parse(alexScanTokensWrapper inStr)))
+  writeFile "code.asm" (mipsCode)
+  putStrLn "julia-pinheiro is done compiling!"

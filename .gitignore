@@ -11,3 +11,6 @@ cabal.sandbox.config
 cabal.config
 *~
 julia
+*.asm
+Lexer.hs
+Parser.hs
