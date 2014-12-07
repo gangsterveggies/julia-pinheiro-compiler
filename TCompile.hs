@@ -4,35 +4,47 @@ import Parser
 
 data Ops = BBi BoolOpsBi | BUi BoolOpsUn | Cmp CompOps | NOp NumOps deriving (Show)
 data Op = OpAdd | OpSub | OpMul | OpDiv | OpPow | OpMod
-        | OpAt | OpJp | OpLb | OpIfFalse deriving (Show)
+        | OpAt | OpJp | OpLb | OpIfFalse | OpPrint
+        | OpSc | OpDeSc deriving (Show)
 data Value = Num Int | TVar String | Label String | Null deriving (Show)
 type Code = (Op, Value, Value, Value)
 
+compile :: Command -> [Code]
+compile cmd = [(OpSc, Null, Null, Null)]
+              ++ (fst (compileCmd 0 cmd))
+              ++ [(OpDeSc, Null, Null, Null)]
+
 compileCmd :: Int -> Command -> ([Code], Int)
 compileCmd lbNum (While exp cmd) = ([(OpLb, Label (show lbNum), Null, Null)]
-                                   ++ expCode
-                                   ++ [(OpIfFalse, TVar expVar, Label (show (lbNum + 1)), Null)]
-                                   ++ code
-                                   ++ [(OpJp, Label (show lbNum), Null, Null)]
-                                   ++ [(OpLb, Label (show (lbNum + 1)), Null, Null)], lbNum1 + 1)
+                                    ++ expCode
+                                    ++ [(OpIfFalse, TVar expVar, Label (show (lbNum + 1)), Null)]
+                                    ++ [(OpSc, Null, Null, Null)]
+                                    ++ code
+                                    ++ [(OpDeSc, Null, Null, Null)]
+                                    ++ [(OpJp, Label (show lbNum), Null, Null)]
+                                    ++ [(OpLb, Label (show (lbNum + 1)), Null, Null)], lbNum1 + 1)
     where (expVar, expCode, _) = compileExpBool 0 exp
           (code, lbNum1) = compileCmd (lbNum + 2) cmd
 compileCmd lbNum (Attr (Var var) exp) = (expCode ++ [(OpAt, TVar var, TVar expVar, Null)], lbNum)
     where (expVar, expCode, _) = compileExp 0 exp
-compileCmd lbNum (IfCmd iflist) = (ifCode, lbNum1)
-    where (ifCode, lbNum1) = compileIfList lbNum1 iflist
+compileCmd lbNum (Print ls) = ((compilePrint ls), lbNum)
+compileCmd lbNum (IfCmd iflist) = compileIfList lbNum iflist
 compileCmd lbNum (Seq cmd1 cmd2) = (code1 ++ code2, lbNum2)
     where (code1, lbNum1) = compileCmd lbNum cmd1
           (code2, lbNum2) = compileCmd lbNum1 cmd2
 compileCmd lbNum None = ([], lbNum)
 
+compilePrint :: [Expr] -> [Code]
+compilePrint [] = []
+compilePrint (exp:xs) = expCode ++ [(OpPrint, TVar expVar, Null, Null)] ++ (compilePrint xs)
+    where (expVar, expCode, _) = compileExp 0 exp
+
 compileIfList :: Int -> IfList -> ([Code], Int)
 compileIfList lbNum (If ifArr elseCmd) = (ifsCode
-                                          ++ [(OpLb, Label (show lbNum1), Null, Null)]
                                           ++ elseCode
                                           ++ [(OpLb, Label (show lbNum), Null, Null)], lbNum2)
     where (ifsCode, lbNum1) = compileIfs lbNum ifArr (lbNum + 1)
-          (elseCode, lbNum2) = compileCmd (lbNum1 + 1) elseCmd
+          (elseCode, lbNum2) = compileCmd lbNum1 elseCmd
 
 compileIfs :: Int -> [(ExprBool, Command)] -> Int -> ([Code], Int)
 compileIfs endLb [] lbNum = ([], lbNum)

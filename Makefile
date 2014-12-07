@@ -1,9 +1,7 @@
 default:
-	rm -f Lexer.hs
-	rm -f Parser.hs
-	alex Lexer.x
-	happy Parser.y
-	ghc -o julia Lexer.hs Parser.hs TCompile.hs julia.hs
+	if [ Lexer.x -nt Lexer.hs ]; then alex Lexer.x; fi
+	if [ Parser.y -nt Parser.hs ]; then happy Parser.y; fi
+	ghc -o julia Lexer.hs Parser.hs TCompile.hs Stack.hs Scope.hs julia.hs
 
 clean:
 	rm -f Lexer.hs

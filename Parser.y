@@ -80,6 +80,17 @@ ListExp : Exp ',' ListExp                    { $1 : $3 }
 Exp     : ExpNum                             { ExprNum $1 }
         | ExpBool                            { ExprBool $1 }
 
+ExpNum  : ExpNum '+' ExpNum                  { Operation $1 Add $3 }
+        | ExpNum '-' ExpNum                  { Operation $1 Sub $3 }
+        | ExpNum '*' ExpNum                  { Operation $1 Mul $3 }
+        | ExpNum '/' ExpNum                  { Operation $1 Div $3 }
+        | ExpNum '^' ExpNum                  { Operation $1 Pow $3 }
+        | ExpNum '%' ExpNum                  { Operation $1 Mod $3 }
+        | '(' ExpNum ')'                     { $2 }
+        | int                                { NumConst (NumInt $1) }
+        | float                              { NumConst (NumFloat $1) }
+        | Var                                { NumVar $1 }
+
 ExpBool : ExpBool '&&' ExpBool               { Operation1 $1 BolAnd $3 }
         | ExpBool '||' ExpBool               { Operation1 $1 BolOr $3 }
         | '!' ExpBool                        { Operation2 BolNot $2 }
@@ -92,17 +103,6 @@ ExpBool : ExpBool '&&' ExpBool               { Operation1 $1 BolAnd $3 }
         | '(' ExpBool ')'                    { $2 }
         | Bool                               { BoolConst $1 }
         | Var                                { BoolVar $1 }
-
-ExpNum  : ExpNum '+' ExpNum                  { Operation $1 Add $3 }
-        | ExpNum '-' ExpNum                  { Operation $1 Sub $3 }
-        | ExpNum '*' ExpNum                  { Operation $1 Mul $3 }
-        | ExpNum '/' ExpNum                  { Operation $1 Div $3 }
-        | ExpNum '^' ExpNum                  { Operation $1 Pow $3 }
-        | ExpNum '%' ExpNum                  { Operation $1 Mod $3 }
-        | '(' ExpNum ')'                     { $2 }
-        | int                                { NumConst (NumInt $1) }
-        | float                              { NumConst (NumFloat $1) }
-        | Var                                { NumVar $1 }
 
 Bool    : true                               { True }
         | false                              { False }

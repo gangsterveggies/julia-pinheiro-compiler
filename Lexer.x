@@ -51,7 +51,7 @@ tokens :-
   false                                 { \p s -> TokenBool p False }
   $alpha [$alpha $digit \_ !]*		{ \p s -> TokenVar p s }
 
-  $white+				;
+  [\ \t\f\v\r]+				;
 {
 
 data Token = TokenInt AlexPosn Int -- Types and Variables
