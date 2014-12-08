@@ -31,8 +31,8 @@ import Lexer
   '!='                                  { TokenNotEq _ }
   '<'                                   { TokenLss _ }
   '>'                                   { TokenGrt _ }
-  '<='                                  { TokenGrt _ }
-  '>='                                  { TokenGrt _ }
+  '<='                                  { TokenLeq _ }
+  '>='                                  { TokenGeq _ }
 -- Methods
   println                               { TokenPrintln _ }
     -- Attributions
@@ -116,8 +116,7 @@ data NumOps = Add
             | Mul
             | Div
             | Pow
-            | Mod
-            | Lst deriving Show
+            | Mod deriving Show
 
 data BoolOpsBi = BolAnd
                | BolOr deriving Show

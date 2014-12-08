@@ -22,20 +22,13 @@ sAnalyse sc (OpSc, Null, Null, Null) = ((OpSc, Null, Null, Null), ScopeMap.ensco
 sAnalyse sc (OpDeSc, Null, Null, Null) = ((OpDeSc, Null, Null, Null), ScopeMap.descope sc)
 sAnalyse sc (OpPrint, UVar var, Null, Null) = ((OpPrint, TVar (var, tp), Null, Null), sc)
   where tp = getType (UVar var) sc
+sAnalyse sc (OpIfFalse, UVar var, lb, Null) = ((OpIfFalse, TVar (var, tp), lb, Null), sc)
+  where tp = getType (UVar var) sc
 sAnalyse sc (op, UVar var, y, z)
   | isArithmetic op = sArithmetic sc (op, UVar var, y, z)
+  | isBoolExp op = sBoolExp sc (op, UVar var, y, z)
   | otherwise = ((op, UVar var, y, z), sc)
 sAnalyse sc code = (code, sc)
-
-convertType :: ValueType -> Type
-convertType (VTBool _) = TBool
-convertType (VTInt _) = TInt
-convertType (VTFloat _) = TFloat
-
-convertValue :: ScopeStack -> Value -> Value
-convertValue sc (UVar var) = (TVar (var, tp))
-  where tp = getType (UVar var) sc
-convertValue _ vl = vl
 
 getType :: Value -> ScopeStack -> Type
 getType (Const x) _ = convertType x
@@ -55,6 +48,22 @@ sArithmetic sc (op, UVar var, y, z) = ((op, TVar (var, tp1), convertValue sc y, 
         sc1 = fromJust ("cannot convert variable '" ++ var ++ "' to " ++ (show tp1)) (setType var tp1 sc)
         sc2 = fromJust ("invalid operation with " ++ (show tp1) ++ " and " ++ (show tp2)) (setType var tp2 sc1)
 
+sBoolExp :: ScopeStack -> Code -> (Code, ScopeStack)
+sBoolExp sc (op, UVar var, y, z) = fromJust"" (testAndError (tp1 == tp2 && tp1 /= TBool) ("invalid operation with " ++ (show tp1) ++ " and " ++ (show tp2)) ((op, TVar (var, TBool), convertValue sc y, convertValue sc z), sc1))
+  where tp1 = getType y sc
+        tp2 = getType z sc
+        sc1 = fromJust ("cannot convert variable '" ++ var ++ "' to " ++ (show TBool)) (setType var TBool sc)
+
+convertType :: ValueType -> Type
+convertType (VTBool _) = TBool
+convertType (VTInt _) = TInt
+convertType (VTFloat _) = TFloat
+
+convertValue :: ScopeStack -> Value -> Value
+convertValue sc (UVar var) = (TVar (var, tp))
+  where tp = getType (UVar var) sc
+convertValue _ vl = vl
+
 isRegister :: String -> Bool
 isRegister = isDigit . head
 
@@ -65,3 +74,12 @@ isArithmetic OpMul = True
 isArithmetic OpDiv = True
 isArithmetic OpMod = True
 isArithmetic _ = False
+
+isBoolExp :: Op -> Bool
+isBoolExp OpEq = True
+isBoolExp OpNEq = True
+isBoolExp OpLs = True
+isBoolExp OpGt = True
+isBoolExp OpLq = True
+isBoolExp OpGq = True
+isBoolExp _ = False

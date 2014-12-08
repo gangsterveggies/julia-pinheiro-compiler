@@ -3,7 +3,8 @@ import Parser
 
 data Ops = BBi BoolOpsBi | BUi BoolOpsUn | Cmp CompOps | NOp NumOps deriving (Show)
 data Op = OpAdd | OpSub | OpMul | OpDiv | OpMod
-        | OpAt | OpJp | OpLb | OpIfFalse | OpPrint
+        | OpEq | OpNEq | OpLs | OpGt | OpLq | OpGq
+        | OpAt | OpJp | OpLb | OpIfFalse | OpPrint | OpPrintLC
         | OpSc | OpDeSc deriving (Show)
 data ValueType = VTInt Int | VTFloat Float | VTBool Bool deriving (Show)
 data Type = TInt | TFloat | TBool deriving (Show, Eq)
@@ -17,9 +18,9 @@ compile cmd = [(OpSc, Null, Null, Null)]
 
 compileCmd :: Int -> Command -> ([Code], Int)
 compileCmd lbNum (While exp cmd) = ([(OpLb, Label (show lbNum), Null, Null)]
+                                    ++ [(OpSc, Null, Null, Null)]
                                     ++ expCode
                                     ++ [(OpIfFalse, UVar expVar, Label (show (lbNum + 1)), Null)]
-                                    ++ [(OpSc, Null, Null, Null)]
                                     ++ code
                                     ++ [(OpDeSc, Null, Null, Null)]
                                     ++ [(OpJp, Label (show lbNum), Null, Null)]
@@ -28,7 +29,7 @@ compileCmd lbNum (While exp cmd) = ([(OpLb, Label (show lbNum), Null, Null)]
           (code, lbNum1) = compileCmd (lbNum + 2) cmd
 compileCmd lbNum (Attr (Var var) exp) = (expCode ++ [(OpAt, UVar var, UVar expVar, Null)], lbNum)
     where (expVar, expCode, _) = compileExp 0 exp
-compileCmd lbNum (Print ls) = ((compilePrint ls), lbNum)
+compileCmd lbNum (Print ls) = ((compilePrint ls) ++ [(OpPrintLC, Null, Null, Null)], lbNum)
 compileCmd lbNum (IfCmd iflist) = compileIfList lbNum iflist
 compileCmd lbNum (Seq cmd1 cmd2) = (code1 ++ code2, lbNum2)
     where (code1, lbNum1) = compileCmd lbNum cmd1
@@ -68,6 +69,12 @@ getOp (NOp Sub) = OpSub
 getOp (NOp Mul) = OpMul
 getOp (NOp Div) = OpDiv
 getOp (NOp Mod) = OpMod
+getOp (Cmp Eq) = OpEq
+getOp (Cmp NotEq) = OpNEq
+getOp (Cmp Lss) = OpLs
+getOp (Cmp Grt) = OpGt
+getOp (Cmp Leq) = OpLq
+getOp (Cmp Geq) = OpGq
 
 compileExp :: Int -> Expr -> (String, [Code], Int)
 compileExp nx (ExprBool exp) = compileExpBool nx exp
