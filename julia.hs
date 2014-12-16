@@ -45,18 +45,17 @@ translate sc (OpLb, Label s, Null, Null) = ("L" ++ s ++ ":\n", sc)
 translate sc (OpJp, Label s, Null, Null) = ("\tj L" ++ s ++ "\n", sc)
 translate sc (OpFunc, TVar (s, _), Null, Null) = (s ++ ":\n" ++ getCode ++ "\tsw $ra, ($t0)\n\n", sc1)
   where (getCode, sc1) = setVariable sc 0 "0r" TInt
-translate sc (OpParam vl False, TVar (var, tp), Null, Null) = (getCode ++ "\t" ++ (getLoadType tp) ++ " $a" ++ (show vl) ++ ", ($t0)\n\n", sc1)
+translate sc (OpParam vl False, TVar (var, tp), Null, Null) = (getCode ++ "\tlw $a" ++ (show vl) ++ ", ($t0)\n\n", sc1)
   where (getCode, sc1) = setVariable sc 0 var tp
-translate sc (OpParam vl True, TVar (var, tp), Null, Null) = (getCode ++ "\t" ++ (getStoreType tp) ++ " $a" ++ (show vl) ++ ", ($t0)\n\n", sc1)
+translate sc (OpParam vl True, TVar (var, tp), Null, Null) = (getCode ++ "\tsw $a" ++ (show vl) ++ ", ($t0)\n\n", sc1)
   where (getCode, sc1) = setVariable sc 0 var tp
-translate sc (OpCall, TVar (var, tp), UVar f, Null) = ("\tjal " ++ f ++ "\n\n" ++ getCode ++ "\t" ++ (getStoreType tp) ++ " $v0, ($t0)\n\n", sc1)
+translate sc (OpCall, TVar (var, tp), UVar f, Null) = ("\tjal " ++ f ++ "\n\n" ++ getCode ++ "\tsw $v0, ($t0)\n\n", sc1)
   where (getCode, sc1) = setVariable sc 0 var tp
-
 translate sc (OpRd, TVar (var, tp), Null, Null) = ("\tli $v0, " ++ (getReadType tp) ++ "\n\tsyscall\n\n" ++ getCode ++ "\t" ++ (getStoreType tp) ++ " $" ++ (getReturnType tp) ++ "0, ($t0)\n\n", sc1)
   where (getCode, sc1) = setVariable sc 0 var tp
         
 translate sc (OpJr, Null, Null, Null) = ("\tjr $ra\n\n", sc)
-translate sc (OpRet, TVar (var, tp), Null, Null) = (getCode1 ++ "\t" ++ (getLoadType tp) ++ " $v0, ($t0)\n" ++ getCode2 ++ "\tlw $ra, ($t1)\n\n", sc2)
+translate sc (OpRet, TVar (var, tp), Null, Null) = (getCode1 ++ "\tlw $v0, ($t0)\n" ++ getCode2 ++ "\tlw $ra, ($t1)\n\n", sc2)
   where (getCode1, sc1) = setVariable sc 0 var tp
         (getCode2, sc2) = setVariable sc1 1 "0r" TInt
 translate sc (OpEnd, Null, Null, Null) = ("\tli $v0, 10\n\tsyscall\n\n", sc)
@@ -151,3 +150,14 @@ main = do
 --  putStrLn ((show staticCode) ++ "\n")
   writeFile "code.asm" (mipsCode)
   putStrLn "julia-pinheiro is done compiling!"
+
+{-
+
+Final things to do:
+  Fix li float
+  Add arrays
+  Add strings
+  Add code import
+  Print strings
+
+-}
