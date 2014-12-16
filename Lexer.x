@@ -8,37 +8,27 @@ $digit = 0-9
 $alpha = [a-zA-Z]
 
 tokens :-
-
-    -- Arithmetic Expressions
-  \+                                    { \p s -> TokenAdd p }
-  \-                                    { \p s -> TokenSub p }
-  \*                                    { \p s -> TokenMul p }
-  \/                                    { \p s -> TokenDiv p }
-  \^                                    { \p s -> TokenPow p }
-  \%                                    { \p s -> TokenMod p }
-  \(                                    { \p s -> TokenLB p }
-  \)                                    { \p s -> TokenRB p }
-    -- Boolean Expressions
-  \!                                    { \p s -> TokenBolNot p }
-  \|\|                                  { \p s -> TokenBolAnd p }
-  \&\&                                  { \p s -> TokenBolOr p }
-    -- Boolean Comparisons
-  \=\=                                  { \p s -> TokenEq p }
-  \!\=                                  { \p s -> TokenNotEq p }
-  \<                                    { \p s -> TokenLss p }
-  \>                                    { \p s -> TokenGrt p }
-  \<\=                                  { \p s -> TokenLeq p }
-  \>\=                                  { \p s -> TokenGeq p }
     -- Methods
   println                               { \p s -> TokenPrintln p }
     -- Attributions
   \=                                    { \p s -> TokenAtr p }
+    -- Expressions
+  \(                                    { \p s -> TokenLB p }
+  \)                                    { \p s -> TokenRB p }
+  [\+\-\*\/\^\%\!\|\&\=\<\>]+           { \p s -> TokenOp p s }
     -- Ifs
   if                                    { \p s -> TokenIf p }
   elseif                                { \p s -> TokenElseIf p }
   else                                  { \p s -> TokenElse p }
     -- While
   while                                 { \p s -> TokenWhile p }
+    -- Functions
+  return                                { \p s -> TokenReturn p }
+  function                              { \p s -> TokenDef p }
+    -- Types
+  int                                   { \p s -> TokenTInt p }
+  float                                 { \p s -> TokenTFloat p }
+  bool                                  { \p s -> TokenTBool p }
     -- Miscelaneous
   \,                                    { \p s -> TokenComma p }
   end                                   { \p s -> TokenEnd p }
@@ -59,25 +49,9 @@ data Token = TokenInt AlexPosn Int -- Types and Variables
            | TokenBool AlexPosn Bool
      	   | TokenVar AlexPosn String
              -- Arithmetic Expressions
-           | TokenAdd AlexPosn -- +
-     	   | TokenSub AlexPosn -- -
-           | TokenMul AlexPosn -- *
-           | TokenDiv AlexPosn -- /
-           | TokenPow AlexPosn -- ^
-           | TokenMod AlexPosn -- %
-           | TokenLB AlexPosn  -- (
+           | TokenLB AlexPosn -- (
            | TokenRB AlexPosn -- )
-             -- Boolean Expressions
-           | TokenBolNot AlexPosn -- !
-           | TokenBolAnd AlexPosn -- &&
-           | TokenBolOr AlexPosn -- ||
-             -- Boolean Comparisons
-           | TokenEq AlexPosn     -- ==
-           | TokenNotEq AlexPosn  -- !=
-           | TokenLss AlexPosn    -- <
-           | TokenGrt AlexPosn    -- >
-           | TokenLeq AlexPosn    -- <=
-           | TokenGeq AlexPosn    -- >=
+           | TokenOp AlexPosn String
              -- Methods
            | TokenPrintln AlexPosn
              -- Attributions
@@ -88,6 +62,13 @@ data Token = TokenInt AlexPosn Int -- Types and Variables
            | TokenElse AlexPosn
              -- While
            | TokenWhile AlexPosn
+             -- Functions
+           | TokenReturn AlexPosn
+           | TokenDef AlexPosn
+             -- Types
+           | TokenTInt AlexPosn
+           | TokenTFloat AlexPosn
+           | TokenTBool AlexPosn
              -- Miscelaneous
            | TokenComma AlexPosn
            | TokenEnd AlexPosn
@@ -100,25 +81,7 @@ tokenPosn (TokenFloat p _) = p
 tokenPosn (TokenBool p _) = p
 tokenPosn (TokenVar p _) = p
              -- Arithmetic Expressions
-tokenPosn (TokenAdd p) = p
-tokenPosn (TokenSub p) = p
-tokenPosn (TokenMul p) = p
-tokenPosn (TokenDiv p) = p
-tokenPosn (TokenPow p) = p
-tokenPosn (TokenMod p) = p
-tokenPosn (TokenLB p) = p
-tokenPosn (TokenRB p) = p
-             -- Boolean Expressions
-tokenPosn (TokenBolNot p) = p
-tokenPosn (TokenBolAnd p) = p
-tokenPosn (TokenBolOr p) = p
-             -- Boolean Comparisons
-tokenPosn (TokenEq p) = p
-tokenPosn (TokenNotEq p) = p
-tokenPosn (TokenLss p) = p
-tokenPosn (TokenGrt p) = p
-tokenPosn (TokenLeq p) = p
-tokenPosn (TokenGeq p) = p
+tokenPosn (TokenOp p _) = p
              -- Methods
 tokenPosn (TokenPrintln p) = p
              -- Attributions
@@ -129,6 +92,13 @@ tokenPosn (TokenElseIf p) = p
 tokenPosn (TokenElse p) = p
              -- While
 tokenPosn (TokenWhile p) = p
+             -- Functions
+tokenPosn (TokenReturn p) = p
+tokenPosn (TokenDef p) = p
+             -- Types
+tokenPosn (TokenTInt p) = p
+tokenPosn (TokenTFloat p) = p
+tokenPosn (TokenTBool p) = p
              -- Miscelaneous
 tokenPosn (TokenComma p) = p
 tokenPosn (TokenEnd p) = p

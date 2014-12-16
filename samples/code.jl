@@ -1,11 +1,13 @@
-a = 0
-b = 1
-c = 10
-while c > 0
-  tmp = b
-  b = a + b
-  a = tmp
-  c = c - 1
+function main() int
+  println(fib(8))
+  return 0
 end
-println(a,c)
-println(a)
+function fib(int b) int
+  if (b == 0)
+    return 0
+  elseif (b == 1)
+    return 1
+  else
+    return fib(b - 1) + fib(b - 2)
+  end
+end

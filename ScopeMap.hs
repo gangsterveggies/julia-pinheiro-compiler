@@ -4,27 +4,27 @@ import qualified Data.Map as HashTable
 
 type HashTable a = HashTable.Map String a
 
-type ScopeMap a = Stack (HashTable a)
+type ScopeMap a = Stack (HashTable a, Bool)
 
 empty :: ScopeMap a
 empty = Stack.empty
 
-enscope :: ScopeMap a -> ScopeMap a
-enscope st = Stack.push HashTable.empty st
+enscope :: ScopeMap a -> Bool -> ScopeMap a
+enscope st bl = Stack.push (HashTable.empty, bl) st
 
 descope :: ScopeMap a -> ScopeMap a
 descope st = Stack.pop st
 
 insert :: String -> a -> ScopeMap a -> ScopeMap a
-insert var vl st = Stack.changeTop (HashTable.insert var vl hs) st
-  where hs = Stack.top st
+insert var vl st = Stack.changeTop (HashTable.insert var vl hs, bl) st
+  where (hs, bl) = Stack.top st
 
 lookup :: Eq a => String -> ScopeMap a -> (Maybe a)
 lookup var st
   | Stack.isEmpty st = Nothing
-  | otherwise = let hs = Stack.top st
+  | otherwise = let hs = fst (Stack.top st)
                 in let ans = HashTable.lookup var hs
-                   in if ans == Nothing then ScopeMap.lookup var (Stack.pop st)
+                   in if ans == Nothing || (snd (Stack.top st)) then ScopeMap.lookup var (Stack.pop st)
                       else ans
 
 {- main = do

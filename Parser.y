@@ -10,30 +10,37 @@ import Lexer
 %token
   int                                   { TokenInt _ $$ }
   float                                 { TokenFloat _ $$ }
-  true                                  { TokenBool _ True }
-  false                                 { TokenBool _ False }
+  bool                                  { TokenBool _ $$ }
   var                                   { TokenVar _ $$ }
     -- Arithmetic Expressions
-  '+'                                   { TokenAdd _ }
-  '-'                                   { TokenSub _ }
-  '*'                                   { TokenMul _ }
-  '/'                                   { TokenDiv _ }
-  '^'                                   { TokenPow _ }
-  '%'                                   { TokenMod _ }
+  '+'                                   { TokenOp _ "+" }
+  '-'                                   { TokenOp _ "-" }
+  '*'                                   { TokenOp _ "*" }
+  '/'                                   { TokenOp _ "/" }
+  '%'                                   { TokenOp _ "%" }
   '('                                   { TokenLB _ }
   ')'                                   { TokenRB _ }
     -- Boolean Expressions
-  '!'                                   { TokenBolNot _ }
-  '||'                                  { TokenBolAnd _ }
-  '&&'                                  { TokenBolOr _ }
+  '!'                                   { TokenOp _ "!" }
+  '||'                                  { TokenOp _ "||" }
+  '&&'                                  { TokenOp _ "&&" }
     -- Boolean Comparisons
-  '=='                                  { TokenEq _ }
-  '!='                                  { TokenNotEq _ }
-  '<'                                   { TokenLss _ }
-  '>'                                   { TokenGrt _ }
-  '<='                                  { TokenLeq _ }
-  '>='                                  { TokenGeq _ }
--- Methods
+  '=='                                  { TokenOp _ "==" }
+  '!='                                  { TokenOp _ "!=" }
+  '<'                                   { TokenOp _ "<" }
+  '>'                                   { TokenOp _ ">" }
+  '<='                                  { TokenOp _ "<=" }
+  '>='                                  { TokenOp _ ">=" }
+    -- Expressions
+  sign                                  { TokenOp _ $$ }
+    -- Functions
+  def                                   { TokenDef _ }
+  return                                { TokenReturn _ }
+    -- Types
+  tint                                  { TokenTInt _ }
+  tfloat                                { TokenTFloat _ }
+  tbool                                 { TokenTBool _ }
+    -- Methods
   println                               { TokenPrintln _ }
     -- Attributions
   '='                                   { TokenAtr _ }
@@ -54,110 +61,95 @@ import Lexer
 %left '&&'
 %left '+' '-'
 %left '*' '/' '%'
-%left '^'
+%left sign
 %left lc ';' ','
 
 %%
 
-Cmd     : if ExpBool lc Cmd IfE end          { IfCmd (If (($2, $4) : $5) None) }
-        | if ExpBool lc Cmd IfE else Cmd end { IfCmd (If (($2, $4) : $5) $7) }
-        | while ExpBool lc Cmd end           { While $2 $4 }
-        | Var '=' Exp                        { Attr $1 $3 }
-        | println '(' ListExp ')'            { Print $3 }
-        | Cmd lc Cmd                         { Seq $1 $3 }
-        | Cmd lc                             { $1 }
-        | lc Cmd                             { $2 }
-        | Cmd ';' Cmd                        { Seq $1 $3 }
-        | Cmd ';'                            { $1 }
+FList   : Func lc FList                            { $1 : $3 }
+        | Func                                     { [$1] }
+        | {- empty -}                              { [] }
 
-IfE     : elseif ExpBool lc Cmd IfE          { ($2, $4) : $5 }
-        | elseif ExpBool lc Cmd              { [($2, $4)] }
-        | {- empty -}                        { [] }
+Func    : def var '(' TArgList ')' Type lc Cmd end { Func ($2, $6) $4 $8 }
 
-ListExp : Exp ',' ListExp                    { $1 : $3 }
-        | Exp                                { [$1] }
+TArgList: Type var ',' TArgList                    { ($2, $1) : $4 }
+        | Type var                                 { [($2, $1)] }
+        | {- empty -}                              { [] }
 
-Exp     : ExpNum                             { ExprNum $1 }
-        | ExpBool                            { ExprBool $1 }
+ListExp : Exp ',' ListExp                          { $1 : $3 }
+        | Exp                                      { [$1] }
+        | {- empty -}                              { [] }
 
-ExpNum  : ExpNum '+' ExpNum                  { Operation $1 Add $3 }
-        | ExpNum '-' ExpNum                  { Operation $1 Sub $3 }
-        | ExpNum '*' ExpNum                  { Operation $1 Mul $3 }
-        | ExpNum '/' ExpNum                  { Operation $1 Div $3 }
-        | ExpNum '^' ExpNum                  { Operation $1 Pow $3 }
-        | ExpNum '%' ExpNum                  { Operation $1 Mod $3 }
-        | '(' ExpNum ')'                     { $2 }
-        | int                                { NumConst (NumInt $1) }
-        | float                              { NumConst (NumFloat $1) }
-        | Var                                { NumVar $1 }
+Type    : tint                                     { TInt }
+        | tfloat                                   { TFloat }
+        | tbool                                    { TBool }
+          
+Cmd     : if Exp lc Cmd IfE end                    { IfCmd (If (($2, $4) : $5) None) }
+        | if Exp lc Cmd IfE else Cmd end           { IfCmd (If (($2, $4) : $5) $7) }
+        | while Exp lc Cmd end                     { While $2 $4 }
+        | return Exp                               { Ret $2 }
+        | var '=' Exp                              { Attr $1 $3 }
+        | println '(' ListExp ')'                  { Print $3 }
+        | Cmd lc Cmd                               { Seq $1 $3 }
+        | Cmd lc                                   { $1 }
+        | lc Cmd                                   { $2 }
+        | Cmd ';' Cmd                              { Seq $1 $3 }
+        | Cmd ';'                                  { $1 }
 
-ExpBool : ExpBool '&&' ExpBool               { Operation1 $1 BolAnd $3 }
-        | ExpBool '||' ExpBool               { Operation1 $1 BolOr $3 }
-        | '!' ExpBool                        { Operation2 BolNot $2 }
-        | ExpNum '==' ExpNum                 { Operation3 $1 Eq $3 }
-        | ExpNum '!=' ExpNum                 { Operation3 $1 NotEq $3 }
-        | ExpNum '<' ExpNum                  { Operation3 $1 Lss $3 }
-        | ExpNum '>' ExpNum                  { Operation3 $1 Grt $3 }
-        | ExpNum '<=' ExpNum                 { Operation3 $1 Leq $3 }
-        | ExpNum '>=' ExpNum                 { Operation3 $1 Geq $3 }
-        | '(' ExpBool ')'                    { $2 }
-        | Bool                               { BoolConst $1 }
-        | Var                                { BoolVar $1 }
+IfE     : elseif Exp lc Cmd IfE                    { ($2, $4) : $5 }
+        | elseif Exp lc Cmd                        { [($2, $4)] }
+        | {- empty -}                              { [] }
 
-Bool    : true                               { True }
-        | false                              { False }
+Const   : int                                      { EConst (VTInt $1) }
+        | float                                    { EConst (VTFloat $1) }
+        | bool                                     { EConst (VTBool $1) }
 
-Var    : var                                 { Var $1 }
+Exp     : Exp sign Exp                             { BiOperation $1 $2 $3 }
+        | Exp '+' Exp                              { BiOperation $1 "+" $3 }
+        | Exp '-' Exp                              { BiOperation $1 "-" $3 }
+        | Exp '*' Exp                              { BiOperation $1 "*" $3 }
+        | Exp '/' Exp                              { BiOperation $1 "/" $3 }
+        | Exp '%' Exp                              { BiOperation $1 "%" $3 }
+        | Exp '||' Exp                             { BiOperation $1 "||" $3 }
+        | Exp '&&' Exp                             { BiOperation $1 "&&" $3 }
+        | Exp '==' Exp                             { BiOperation $1 "==" $3 }
+        | Exp '!=' Exp                             { BiOperation $1 "!=" $3 }
+        | Exp '<' Exp                              { BiOperation $1 "<" $3 }
+        | Exp '>' Exp                              { BiOperation $1 ">" $3 }
+        | Exp '<=' Exp                             { BiOperation $1 "<=" $3 }
+        | Exp '>=' Exp                             { BiOperation $1 ">=" $3 }
+        | sign Exp                                 { UnOperation $1 $2 }
+        | '!' Exp                                  { UnOperation "!" $2 }
+        | '(' Exp ')'                              { $2 }
+        | var '(' ListExp ')'                      { FCall $1 $3 }
+        | Const                                    { $1 }
+        | var                                      { EVar $1 }
 
 {
 
-data NumOps = Add
-            | Sub
-            | Mul
-            | Div
-            | Pow
-            | Mod deriving Show
+data Type = TInt | TFloat | TBool deriving (Show, Eq)
+data ValueType = VTInt Int | VTFloat Float | VTBool Bool deriving (Show)
 
-data BoolOpsBi = BolAnd
-               | BolOr deriving Show
+data Expr = EConst ValueType
+          | BiOperation Expr String Expr
+          | UnOperation String Expr
+          | FCall String [Expr]
+          | EVar String deriving Show
 
-data BoolOpsUn = BolNot deriving Show
-
-data CompOps = Eq
-             | NotEq
-             | Lss
-             | Grt
-             | Leq
-             | Geq deriving Show
-
-data Var = Var String deriving Show
-
-data JNum = NumInt Int
-          | NumFloat Float deriving Show
-
-data ExprNum = NumConst JNum
-             | Operation ExprNum NumOps ExprNum
-             | NumVar Var deriving Show
-
-data ExprBool = BoolConst Bool
-              | Operation1 ExprBool BoolOpsBi ExprBool
-              | Operation2 BoolOpsUn ExprBool
-              | Operation3 ExprNum CompOps ExprNum
-              | BoolVar Var deriving Show
-
-data Expr = ExprBool ExprBool
-          | ExprNum ExprNum deriving Show
-
-data IfList = If [(ExprBool, Command)] Command deriving Show
+data IfList = If [(Expr, Command)] Command deriving Show
 
 data Command = IfCmd IfList
-             | While ExprBool Command
-             | Attr Var Expr
+             | While Expr Command
+             | Attr String Expr
+             | Ret Expr
              | Print [Expr]
              | Seq Command Command
              | None deriving Show
 
+data Func = Func (String, Type) [(String, Type)] Command deriving Show
+
 parseError :: [Token] -> a
-parseError tokenList = let pos = tokenPosn(head(tokenList)) in
+parseError (token:tokenList) = let pos = tokenPosn(token) in
                        error ("parse error at line " ++ show(getLineNum(pos)) ++ " and column " ++ show(getColumnNum(pos)))
+parseError _ = error "parse error"
 }

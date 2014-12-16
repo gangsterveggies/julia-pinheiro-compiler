@@ -32,14 +32,30 @@ mipsify sc (x:xs) = mCode ++ (mipsify sc1 xs)
   where (mCode, sc1) = translate sc x
 
 translate :: Scope -> Code -> (String, Scope)
-translate sc (OpSc, Null, Null, Null) = ("", Scope.enscope sc)
-translate sc (OpDeSc, Null, Null, Null) = ("\taddi $sp, $sp, " ++ (show (4 * curN)) ++ "\n\n", Scope.descope sc)
+translate sc (OpSc, Null, Null, Null) = ("", Scope.enscope sc True)
+translate sc (OpSc, UVar _, Null, Null) = ("", Scope.enscope sc False)
+translate sc (OpDeSc True, Null, Null, Null) = ("\taddi $sp, $sp, " ++ (show (4 * curN)) ++ "\n\n", Scope.descope sc)
+  where curN = Scope.topSize sc
+translate sc (OpDeSc False, Null, Null, Null) = ("\taddi $sp, $sp, " ++ (show (4 * curN)) ++ "\n\n", sc)
   where curN = Scope.topSize sc
 translate sc (OpAt, TVar (x, tp), p, Null) = (getCode1 ++ getCode2 ++ "\t" ++ (getStoreType tp) ++ " $" ++ (getRegisterType tp) ++ "1, ($t0)\n\n", sc1)
   where getCode1 = getValue sc 1 p
         (getCode2, sc1) = setVariable sc 0 x tp
 translate sc (OpLb, Label s, Null, Null) = ("L" ++ s ++ ":\n", sc)
 translate sc (OpJp, Label s, Null, Null) = ("\tj L" ++ s ++ "\n", sc)
+translate sc (OpFunc, TVar (s, _), Null, Null) = (s ++ ":\n" ++ getCode ++ "\tsw $ra, ($t0)\n\n", sc1)
+  where (getCode, sc1) = setVariable sc 0 "0r" TInt
+translate sc (OpParam vl False, TVar (var, tp), Null, Null) = (getCode ++ "\t" ++ (getLoadType tp) ++ " $a" ++ (show vl) ++ ", ($t0)\n\n", sc1)
+  where (getCode, sc1) = setVariable sc 0 var tp
+translate sc (OpParam vl True, TVar (var, tp), Null, Null) = (getCode ++ "\t" ++ (getStoreType tp) ++ " $a" ++ (show vl) ++ ", ($t0)\n\n", sc1)
+  where (getCode, sc1) = setVariable sc 0 var tp
+translate sc (OpCall, TVar (var, tp), UVar f, Null) = ("\tjal " ++ f ++ "\n\n" ++ getCode ++ "\t" ++ (getStoreType tp) ++ " $v0, ($t0)\n\n", sc1)
+  where (getCode, sc1) = setVariable sc 0 var tp
+translate sc (OpJr, Null, Null, Null) = ("\tjr $ra\n\n", sc)
+translate sc (OpRet, TVar (var, tp), Null, Null) = (getCode1 ++ "\t" ++ (getLoadType tp) ++ " $v0, ($t0)\n" ++ getCode2 ++ "\tlw $ra, ($t1)\n\n", sc2)
+  where (getCode1, sc1) = setVariable sc 0 var tp
+        (getCode2, sc2) = setVariable sc1 1 "0r" TInt
+translate sc (OpEnd, Null, Null, Null) = ("\tli $v0, 10\n\tsyscall\n\n", sc)
 translate sc (OpIfFalse, x, Label s, Null) = (getCode ++ "\tbeqz $t0, L" ++ s ++ "\n\n", sc)
   where getCode = getValue sc 0 x
 translate sc (OpPrintLC, Null, Null, Null) = ("\tla $a0, lc\n\tli $v0, 4\n\tsyscall\n\n", sc)
@@ -50,30 +66,30 @@ translate sc (OpPrint, x, Null, Null)
   | otherwise = ("", sc)
   where getCode = getValue sc 0 x
         tp = getValueType x
-translate sc (op, TVar (x, tp), p1, p2) = (getCode1 ++ getCode2 ++ getCode3 ++ "\n\t" ++ (translateOperation op tp tp1 tp2) ++" $" ++ (getRegisterType tp) ++ "3, $" ++ (getRegisterType tp) ++ "1, $" ++ (getRegisterType tp) ++ "2\n\t" ++ (getStoreType tp) ++ " $" ++ (getRegisterType tp) ++ "3, ($t0)\n\n", sc1)
+translate sc (OpOp op, TVar (x, tp), p1, p2) = (getCode1 ++ getCode2 ++ getCode3 ++ "\n\t" ++ (translateOperation op tp tp1 tp2) ++" $" ++ (getRegisterType tp) ++ "3, $" ++ (getRegisterType tp) ++ "1, $" ++ (getRegisterType tp) ++ "2\n\t" ++ (getStoreType tp) ++ " $" ++ (getRegisterType tp) ++ "3, ($t0)\n\n", sc1)
   where getCode1 = getValue sc 1 p1
         getCode2 = getValue sc 2 p2
         (getCode3, sc1) = setVariable sc 0 x tp
         tp1 = getValueType p1
         tp2 = getValueType p2
 
-translateOperation :: Op -> Type -> Type -> Type -> String
-translateOperation OpAdd TInt _ _ = "add"
-translateOperation OpSub TInt _ _ = "sub"
-translateOperation OpMul TInt _ _ = "mul"
-translateOperation OpDiv TInt _ _ = "div"
-translateOperation OpMod TInt _ _ = "rem"
-translateOperation OpAdd TFloat _ _ = "add.s"
-translateOperation OpSub TFloat _ _ = "sub.s"
-translateOperation OpMul TFloat _ _ = "mul.s"
-translateOperation OpDiv TFloat _ _ = "div.s"
+translateOperation :: String -> Type -> Type -> Type -> String
+translateOperation "+" TInt _ _ = "add"
+translateOperation "-" TInt _ _ = "sub"
+translateOperation "*" TInt _ _ = "mul"
+translateOperation "/" TInt _ _ = "div"
+translateOperation "%" TInt _ _ = "rem"
+translateOperation "+" TFloat _ _ = "add.s"
+translateOperation "-" TFloat _ _ = "sub.s"
+translateOperation "*" TFloat _ _ = "mul.s"
+translateOperation "/" TFloat _ _ = "div.s"
 
-translateOperation OpEq TBool TInt _ = "seq"
-translateOperation OpNEq TBool TInt _ = "sne"
-translateOperation OpLs TBool TInt _ = "slt"
-translateOperation OpGt TBool TInt _ = "sgt"
-translateOperation OpLq TBool TInt _ = "sle"
-translateOperation OpGq TBool TInt _ = "sge"
+translateOperation "==" TBool TInt _ = "seq"
+translateOperation "!=" TBool TInt _ = "sne"
+translateOperation "<" TBool TInt _ = "slt"
+translateOperation ">" TBool TInt _ = "sgt"
+translateOperation "<=" TBool TInt _ = "sle"
+translateOperation ">=" TBool TInt _ = "sge"
 
 {-translateOperation OpEq TBool TFloat _ = "c.eq.s 0 $f1 $f2\n\tmovt $t3, $zero"
 translateOperation OpNEq TBool TFloat _ = "rem"
@@ -112,13 +128,12 @@ main = do
   let parseTree = parse tokenList
   let taddCode = compile parseTree
   let staticCode = staticAnalysis taddCode
---  let staticCode = [(OpSc,Null,Null,Null),(OpAt,TVar ("a",TInt),Const (VTInt 0),Null),(OpAt,TVar ("b",TInt),Const (VTInt 1),Null), (OpAt,TVar ("c",TInt),Const (VTInt 10),Null), (OpLb,Label "0",Null,Null),(OpGt,TVar ("1t",TBool),TVar ("c",TInt),Const (VTInt 0)), (OpIfFalse,TVar ("1t",TBool),Label "1",Null), (OpSc,Null,Null,Null), (OpAt,TVar ("tmp",TInt),TVar ("b",TInt),Null), (OpAdd,TVar ("b",TInt),TVar ("a",TInt),TVar ("b",TInt)), (OpAt,TVar ("a",TInt),TVar ("tmp",TInt),Null), (OpSub,TVar ("c",TInt),TVar ("c",TInt),Const (VTInt 1)), (OpPrint,TVar ("a",TInt),Null,Null), (OpDeSc,Null,Null,Null), (OpJp,Label "0",Null,Null), (OpLb,Label "1",Null,Null), (OpDeSc,Null,Null,Null)]
   let mipsCode = "\t.text\n" ++ (mipsify hs staticCode)
 
---  putStrLn (show inStr)
---  putStrLn (show tokenList)
---  putStrLn (show parseTree)
---  putStrLn (show taddCode)
---  putStrLn (show staticCode)
+--  putStrLn ((show rawCode) ++ "\n")
+--  putStrLn ((show tokenList) ++ "\n")
+--  putStrLn ((show parseTree) ++ "\n")
+--  putStrLn ((show taddCode) ++ "\n")
+--  putStrLn ((show staticCode) ++ "\n")
   writeFile "code.asm" (mipsCode)
   putStrLn "julia-pinheiro is done compiling!"

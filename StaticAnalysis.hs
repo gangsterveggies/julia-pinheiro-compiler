@@ -1,6 +1,7 @@
 module StaticAnalysis where
 import Utils
 import Data.Char
+import Parser
 import TCompile
 import ScopeMap
 
@@ -18,16 +19,24 @@ sAnalyse :: ScopeStack -> Code -> (Code, ScopeStack)
 sAnalyse sc (OpAt, UVar var, x, Null) = ((OpAt, TVar (var, tp), convertValue sc x, Null), sc1)
   where tp = getType x sc
         sc1 = fromJust ("cannot convert variable '" ++ var ++ "' to " ++ (show tp)) (setType var tp sc)
-sAnalyse sc (OpSc, Null, Null, Null) = ((OpSc, Null, Null, Null), ScopeMap.enscope sc)
-sAnalyse sc (OpDeSc, Null, Null, Null) = ((OpDeSc, Null, Null, Null), ScopeMap.descope sc)
+sAnalyse sc (OpSc, Null, Null, Null) = ((OpSc, Null, Null, Null), ScopeMap.enscope sc True)
+sAnalyse sc (OpSc, UVar s, Null, Null) = ((OpSc, UVar s, Null, Null), ScopeMap.enscope sc False)
+sAnalyse sc (OpDeSc True, Null, Null, Null) = ((OpDeSc True, Null, Null, Null), ScopeMap.descope sc)
+sAnalyse sc (OpDeSc False, Null, Null, Null) = ((OpDeSc False, Null, Null, Null), sc)
 sAnalyse sc (OpPrint, UVar var, Null, Null) = ((OpPrint, TVar (var, tp), Null, Null), sc)
   where tp = getType (UVar var) sc
 sAnalyse sc (OpIfFalse, UVar var, lb, Null) = ((OpIfFalse, TVar (var, tp), lb, Null), sc)
   where tp = getType (UVar var) sc
-sAnalyse sc (op, UVar var, y, z)
-  | isArithmetic op = sArithmetic sc (op, UVar var, y, z)
-  | isBoolExp op = sBoolExp sc (op, UVar var, y, z)
-  | otherwise = ((op, UVar var, y, z), sc)
+sAnalyse sc (OpParam ct bl, TVar (var, tp), Null, Null) = ((OpParam ct bl, TVar (var, tp), Null, Null), sc1)
+  where sc1 = fromJust ("variable '" ++ var ++ "' called in function as " ++ (show tp)) (setType var tp sc)
+sAnalyse sc (OpCall, TVar (var, tp), vl, Null) = ((OpCall, TVar (var, tp), vl, Null), sc1)
+  where sc1 = fromJust ("variable '" ++ var ++ "' set to return value of type " ++ (show tp)) (setType var tp sc)
+sAnalyse sc (OpRet, TVar (var, tp), Null, Null) = ((OpRet, TVar (var, tp), Null, Null), sc1)
+  where sc1 = fromJust ("variable '" ++ var ++ "' set as return value of type " ++ (show tp)) (setType var tp sc)
+sAnalyse sc (OpOp op, UVar var, y, z)
+  | isArithmetic op = sArithmetic sc (OpOp op, UVar var, y, z)
+  | isBoolExp op = sBoolExp sc (OpOp op, UVar var, y, z)
+  | otherwise = ((OpOp op, UVar var, y, z), sc)
 sAnalyse sc code = (code, sc)
 
 getType :: Value -> ScopeStack -> Type
@@ -67,19 +76,21 @@ convertValue _ vl = vl
 isRegister :: String -> Bool
 isRegister = isDigit . head
 
-isArithmetic :: Op -> Bool
-isArithmetic OpAdd = True
-isArithmetic OpSub = True
-isArithmetic OpMul = True
-isArithmetic OpDiv = True
-isArithmetic OpMod = True
-isArithmetic _ = False
+isArithmetic :: String -> Bool
+isArithmetic str
+  | str == "+" = True
+  | str == "-" = True
+  | str == "*" = True
+  | str == "/" = True
+  | str == "%" = True
+  | otherwise = False
 
-isBoolExp :: Op -> Bool
-isBoolExp OpEq = True
-isBoolExp OpNEq = True
-isBoolExp OpLs = True
-isBoolExp OpGt = True
-isBoolExp OpLq = True
-isBoolExp OpGq = True
-isBoolExp _ = False
+isBoolExp :: String -> Bool
+isBoolExp str
+  | str == "==" = True
+  | str == "!=" = True
+  | str == "<" = True
+  | str == ">" = True
+  | str == "<=" = True
+  | str == ">=" = True
+  | otherwise = False
