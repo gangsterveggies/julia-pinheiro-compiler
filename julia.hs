@@ -1,5 +1,7 @@
 module Main where
+import System.Exit
 import System.Environment
+import Data.List
 import Utils
 import Lexer
 import Parser
@@ -131,26 +133,71 @@ getReadType TInt = "5"
 getReadType TFloat = "6"
 getReadType TBool = "5"
 
-argumentHandle [] = getContents
-argumentHandle fs = concat `fmap` mapM readFile fs
+data Flag = Help | Output String | PrintTAdd | PrintParse | File String deriving (Show, Eq, Ord)
 
+argumentHandle :: [String] -> [Flag]
+argumentHandle [] = []
+argumentHandle ("-h":xs) = Help : (argumentHandle xs)
+argumentHandle ("--print-parse":xs) = PrintParse : (argumentHandle xs)
+argumentHandle ("--print-tadd":xs) = PrintTAdd : (argumentHandle xs)
+argumentHandle ("-o":f:xs) = (Output f) : (argumentHandle xs)
+argumentHandle (f:xs) = (File f) : (argumentHandle xs)
+
+getOutputFile :: [Flag] -> String
+getOutputFile [] = "a.asm"
+getOutputFile (Output s:xs) = s ++ ".asm"
+getOutputFile (_:xs) = getOutputFile xs
+
+getInputFile :: [Flag] -> Maybe String
+getInputFile [] = Nothing
+getInputFile (File s:xs) = Just s
+getInputFile (_:xs) = getInputFile xs
+
+checkFlag :: Flag -> [Flag] -> Bool
+checkFlag _ [] = False
+checkFlag f (p:xs) = if f == p then True else checkFlag f xs
+
+helpText :: String
+helpText = "Usage:\n\n\tjpc [command-line-options] <input-file>\n\nAvailable options:\n\n\t-h\t\tDisplays this amazing help file\n\t-o <file>\tSet '<file>.asm' as output file (default 'a.asm')\n\t--print-parse\tPrint internal parse code in haskell's structures\n\t--print-tadd\tPrint internal three address code in haskell's structures\n"
+
+logoText :: String
+logoText = "   _       _ _(_)_     |  A fresh haskell julia compiler to mips\r\n  (_)     | (_) (_)    |  Documentation: run <jpc -h> for help\r\n   _ _   _| |_  __ _   |\r\n  | | | | | | |/ _` |  |  Version 0.3 (2014-12-16 23:59 UTC)\r\n  | | |_| | | | (_| |  |  Official: http://julialang.org\r\n _/ |\\__'_|_|_|\\__'_|  |\r\n|__/                   |  from julia to mips in less than a second!\r\n                   _       _          _\r\n                  (_)     | |        (_)\r\n             _ __  _ _ __ | |__   ___ _ _ __ ___\r\n            | '_ \\| | '_ \\| '_ \\ / _ \\ | '__/ _ \\\r\n    ______  | |_) | | | | | | | |  __/ | | | (_) |\r\n   |______| | .__/|_|_| |_|_| |_|\\___|_|_|  \\___/\r\n            | |\r\n            |_|\n\n\tBy Pedro Paredes and Filipe Figueiredo (DCC/FCUP)\n\n"
+
+main :: IO ()
 main = do
-  rawCode <- getArgs >>= argumentHandle
-  let hs = Scope.empty
-  let tokenList = alexScanTokensWrapper rawCode
-  let parseTree = parse tokenList
-  let taddCode = compile parseTree
-  let staticCode = staticAnalysis taddCode
-  let mipsCode = "\t.text\n" ++ (mipsify hs staticCode)
+  putStr logoText
 
+  argList <- getArgs
+  let flagList = sort (argumentHandle(fmap id argList))
+  if (checkFlag Help flagList) then do
+    putStr helpText
+  else do
+    let hs = Scope.empty
+    let outputFile = getOutputFile flagList
+    rawCode <- readFile (fromJust "no input files\nTry the '-h' option for basic information" (getInputFile flagList))
+
+    let tokenList = alexScanTokensWrapper rawCode
+    let parseTree = parse tokenList
+    let taddCode = compile parseTree
+    let staticCode = staticAnalysis taddCode
+    let mipsCode = "\t.text\n" ++ (mipsify hs staticCode)
+
+    let printParse = checkFlag PrintParse flagList
+    let printTAdd = checkFlag PrintTAdd flagList
 --  putStrLn ((show rawCode) ++ "\n")
 --  putStrLn ((show tokenList) ++ "\n")
 --  putStrLn ((show parseTree) ++ "\n")
 --  putStrLn ((show taddCode) ++ "\n")
 --  putStrLn ((show staticCode) ++ "\n")
-  writeFile "code.asm" (mipsCode)
-  putStrLn "julia-pinheiro is done compiling!"
+    writeFile outputFile (mipsCode)
+    
+    if printParse then putStrLn ("Parse Tree:\n" ++ (show parseTree) ++ "\n")
+    else return ()
 
+    if printTAdd then putStrLn ("Three Address Code:\n" ++ (show staticCode) ++ "\n")
+    else return ()
+
+    putStrLn "julia-pinheiro is done compiling!"
 {-
 
 Final things to do:
