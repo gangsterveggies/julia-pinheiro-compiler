@@ -133,11 +133,12 @@ getReadType TInt = "5"
 getReadType TFloat = "6"
 getReadType TBool = "5"
 
-data Flag = Help | Output String | PrintTAdd | PrintParse | File String deriving (Show, Eq, Ord)
+data Flag = Help | Output String | PrintTAdd | PrintParse | Quiet | File String deriving (Show, Eq, Ord)
 
 argumentHandle :: [String] -> [Flag]
 argumentHandle [] = []
 argumentHandle ("-h":xs) = Help : (argumentHandle xs)
+argumentHandle ("-q":xs) = Quiet : (argumentHandle xs)
 argumentHandle ("--print-parse":xs) = PrintParse : (argumentHandle xs)
 argumentHandle ("--print-tadd":xs) = PrintTAdd : (argumentHandle xs)
 argumentHandle ("-o":f:xs) = (Output f) : (argumentHandle xs)
@@ -158,20 +159,24 @@ checkFlag _ [] = False
 checkFlag f (p:xs) = if f == p then True else checkFlag f xs
 
 helpText :: String
-helpText = "Usage:\n\n\tjpc [command-line-options] <input-file>\n\nAvailable options:\n\n\t-h\t\tDisplays this amazing help file\n\t-o <file>\tSet '<file>.asm' as output file (default 'a.asm')\n\t--print-parse\tPrint internal parse code in haskell's structures\n\t--print-tadd\tPrint internal three address code in haskell's structures\n"
+helpText = "Usage:\n\n\tjpc [command-line-options] <input-file>\n\nAvailable options:\n\n\t-h\t\tDisplays this amazing help file\n\t-o <file>\tSet '<file>.asm' as output file (default 'a.asm')\n\t--print-parse\tPrint internal parse code in haskell's structures\n\t--print-tadd\tPrint internal three address code in haskell's structures\n\t-q\t\tquiet compile (don't print that huge header nor the final message)\n"
 
 logoText :: String
 logoText = "   _       _ _(_)_     |  A fresh haskell julia compiler to mips\r\n  (_)     | (_) (_)    |  Documentation: run <jpc -h> for help\r\n   _ _   _| |_  __ _   |\r\n  | | | | | | |/ _` |  |  Version 0.3 (2014-12-16 23:59 UTC)\r\n  | | |_| | | | (_| |  |  Official: http://julialang.org\r\n _/ |\\__'_|_|_|\\__'_|  |\r\n|__/                   |  from julia to mips in less than a second!\r\n                   _       _          _\r\n                  (_)     | |        (_)\r\n             _ __  _ _ __ | |__   ___ _ _ __ ___\r\n            | '_ \\| | '_ \\| '_ \\ / _ \\ | '__/ _ \\\r\n    ______  | |_) | | | | | | | |  __/ | | | (_) |\r\n   |______| | .__/|_|_| |_|_| |_|\\___|_|_|  \\___/\r\n            | |\r\n            |_|\n\n\tBy Pedro Paredes and Filipe Figueiredo (DCC/FCUP)\n\n"
 
 main :: IO ()
 main = do
-  putStr logoText
-
   argList <- getArgs
   let flagList = sort (argumentHandle(fmap id argList))
   if (checkFlag Help flagList) then do
+    putStr logoText
     putStr helpText
   else do
+    let quietCompile = checkFlag Quiet flagList
+
+    if (not quietCompile) then putStr logoText
+    else return ()
+
     let hs = Scope.empty
     let outputFile = getOutputFile flagList
     rawCode <- readFile (fromJust "no input files\nTry the '-h' option for basic information" (getInputFile flagList))
@@ -197,7 +202,8 @@ main = do
     if printTAdd then putStrLn ("Three Address Code:\n" ++ (show staticCode) ++ "\n")
     else return ()
 
-    putStrLn "julia-pinheiro is done compiling!"
+    if (not quietCompile) then putStrLn "julia-pinheiro is done compiling!"
+    else return ()
 {-
 
 Final things to do:

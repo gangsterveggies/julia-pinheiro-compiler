@@ -52,6 +52,7 @@ Available options:
 	-o <file>	Set '<file>.asm' as output file
 	--print-parse	Print internal parse code in haskell's structures
 	--print-tadd	Print internal three address code in haskell's structures
+       	-q		quiet compile (don't print that huge header nor the final message)
 
 
      Enjoy our compiler and have fun juliying around,
