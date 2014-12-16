@@ -111,9 +111,15 @@ getLineNum (AlexPn offset lineNum colNum) = lineNum
 getColumnNum :: AlexPosn -> Int
 getColumnNum (AlexPn offset lineNum colNum) = colNum
 
+trim :: [Token] -> [Token]
+trim [] = []
+trim [t] = [t]
+trim ((TokenLC p1):(TokenLC p2):ts) = (TokenLC p1) : (trim ts)
+trim (t1:t2:ts) = t1 : t2 : (trim ts)
+
 alexScanTokensWrapper :: String -> [Token]
-alexScanTokensWrapper str = go (alexStartPos,'\n',[],str)
-    where go inp@(pos,_,_,str) =
+alexScanTokensWrapper str = trim (go (alexStartPos, '\n', [], str))
+    where go inp@(pos, _, _, str) =
               case alexScan inp 0 of
                 AlexEOF -> []
                 AlexError _ -> error ("lexical error @ line " ++ show (getLineNum(pos)) ++ " and column " ++ show (getColumnNum(pos)))

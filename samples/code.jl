@@ -2,6 +2,7 @@ function main() int
   println(fib(8))
   return 0
 end
+
 function fib(int b) int
   if (b == 0)
     return 0
