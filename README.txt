@@ -21,6 +21,13 @@ the revolution in compiler industry, the first functional compiler
 from julia to mips assembly code. Before you get started here are a
 couple of important notes:
 
+ - To compile the source code run make (there is a Makefile prepared
+   for your convinience);
+
+ - The mips generated code was tested with Mars, so for best results
+   use Mars (other assemblers were used but didn't work so well, spim
+   for example);
+
  - When using floats jpc uses the 'li.s' (load immediate float) from
 mips.  Unfortunately this doesn't work on all mips assemblers (for
 example, doesn't work on Mars). Since this was a minor detail the
