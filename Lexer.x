@@ -9,6 +9,7 @@ $alpha = [a-zA-Z]
 
 tokens :-
     -- Methods
+  read                                  { \p s -> TokenRead p }
   println                               { \p s -> TokenPrintln p }
     -- Attributions
   \=                                    { \p s -> TokenAtr p }
@@ -53,6 +54,7 @@ data Token = TokenInt AlexPosn Int -- Types and Variables
            | TokenRB AlexPosn -- )
            | TokenOp AlexPosn String
              -- Methods
+           | TokenRead AlexPosn
            | TokenPrintln AlexPosn
              -- Attributions
            | TokenAtr AlexPosn -- =
@@ -83,6 +85,7 @@ tokenPosn (TokenVar p _) = p
              -- Arithmetic Expressions
 tokenPosn (TokenOp p _) = p
              -- Methods
+tokenPosn (TokenRead p) = p
 tokenPosn (TokenPrintln p) = p
              -- Attributions
 tokenPosn (TokenAtr p) = p
@@ -113,9 +116,8 @@ getColumnNum (AlexPn offset lineNum colNum) = colNum
 
 trim :: [Token] -> [Token]
 trim [] = []
-trim [t] = [t]
-trim ((TokenLC p1):(TokenLC p2):ts) = (TokenLC p1) : (trim ts)
-trim (t1:t2:ts) = t1 : t2 : (trim ts)
+trim ((TokenLC p1):(TokenLC p2):ts) = (trim ((TokenLC p1) : ts))
+trim (t:ts) = t : (trim ts)
 
 alexScanTokensWrapper :: String -> [Token]
 alexScanTokensWrapper str = trim (go (alexStartPos, '\n', [], str))

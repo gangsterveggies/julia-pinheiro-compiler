@@ -1,5 +1,5 @@
 function main() int
-  println(fib(8))
+  println(fib(read(int)))
   return 0
 end
 

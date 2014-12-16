@@ -7,7 +7,7 @@ import qualified Data.Map as HashTable
 type HashTable a = HashTable.Map String a
 type FuncTable = HashTable (Type, [Type])
 data Op = OpOp String | OpFunc | OpParam Int Bool | OpCall | OpRet | OpEnd | OpJr
-        | OpAt | OpJp | OpLb | OpIfFalse | OpPrint | OpPrintLC
+        | OpAt | OpJp | OpLb | OpIfFalse | OpPrint | OpPrintLC | OpRd
         | OpSc | OpDeSc Bool deriving (Show)
 data Value = Const ValueType | UVar String | Label String | TVar (String, Type) | Null deriving (Show)
 type Code = (Op, Value, Value, Value)
@@ -119,6 +119,8 @@ compileExp fMap hs nx (FCall str1 args) = (var, paramsCode
         (fType, argTypes) = fromJust ("function " ++ str ++ " not defined") (HashTable.lookup str hs)
         (paramsCode, nx1) = compileParamsCall fMap hs args argTypes nx 0
         var = newVar nx1
+compileExp _ _ nx (Read tp) = (var, [(OpRd, TVar (var, tp), Null, Null)], nx + 1)
+  where var = newVar nx
 compileExp fMap hs nx (BiOperation exp1 opBi exp2) = (var, cexp1
                                                       ++ cexp2
                                                       ++ [(OpOp opBi, UVar var, UVar var1, UVar var2)], nx2 + 1)

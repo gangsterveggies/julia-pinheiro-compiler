@@ -33,6 +33,8 @@ sAnalyse sc (OpCall, TVar (var, tp), vl, Null) = ((OpCall, TVar (var, tp), vl, N
   where sc1 = fromJust ("variable '" ++ var ++ "' set to return value of type " ++ (show tp)) (setType var tp sc)
 sAnalyse sc (OpRet, TVar (var, tp), Null, Null) = ((OpRet, TVar (var, tp), Null, Null), sc1)
   where sc1 = fromJust ("variable '" ++ var ++ "' set as return value of type " ++ (show tp)) (setType var tp sc)
+sAnalyse sc (OpRd, TVar (var, tp), Null, Null) = ((OpRd, TVar (var, tp), Null, Null), sc1)
+  where sc1 = fromJust ("") (setType var tp sc)
 sAnalyse sc (OpOp op, UVar var, y, z)
   | isArithmetic op = sArithmetic sc (OpOp op, UVar var, y, z)
   | isBoolExp op = sBoolExp sc (OpOp op, UVar var, y, z)

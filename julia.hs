@@ -51,6 +51,10 @@ translate sc (OpParam vl True, TVar (var, tp), Null, Null) = (getCode ++ "\t" ++
   where (getCode, sc1) = setVariable sc 0 var tp
 translate sc (OpCall, TVar (var, tp), UVar f, Null) = ("\tjal " ++ f ++ "\n\n" ++ getCode ++ "\t" ++ (getStoreType tp) ++ " $v0, ($t0)\n\n", sc1)
   where (getCode, sc1) = setVariable sc 0 var tp
+
+translate sc (OpRd, TVar (var, tp), Null, Null) = ("\tli $v0, " ++ (getReadType tp) ++ "\n\tsyscall\n\n" ++ getCode ++ "\t" ++ (getStoreType tp) ++ " $" ++ (getReturnType tp) ++ "0, ($t0)\n\n", sc1)
+  where (getCode, sc1) = setVariable sc 0 var tp
+        
 translate sc (OpJr, Null, Null, Null) = ("\tjr $ra\n\n", sc)
 translate sc (OpRet, TVar (var, tp), Null, Null) = (getCode1 ++ "\t" ++ (getLoadType tp) ++ " $v0, ($t0)\n" ++ getCode2 ++ "\tlw $ra, ($t1)\n\n", sc2)
   where (getCode1, sc1) = setVariable sc 0 var tp
@@ -117,6 +121,16 @@ getLoadType :: Type -> String
 getLoadType TInt = "lw"
 getLoadType TFloat = "lwc1"
 getLoadType TBool = "lw"
+
+getReturnType :: Type -> String
+getReturnType TInt = "v"
+getReturnType TFloat = "f"
+getReturnType TBool = "v"
+
+getReadType :: Type -> String
+getReadType TInt = "5"
+getReadType TFloat = "6"
+getReadType TBool = "5"
 
 argumentHandle [] = getContents
 argumentHandle fs = concat `fmap` mapM readFile fs

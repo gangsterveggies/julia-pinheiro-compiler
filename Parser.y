@@ -41,6 +41,7 @@ import Lexer
   tfloat                                { TokenTFloat _ }
   tbool                                 { TokenTBool _ }
     -- Methods
+  read                                  { TokenRead _ }
   println                               { TokenPrintln _ }
     -- Attributions
   '='                                   { TokenAtr _ }
@@ -122,6 +123,7 @@ Exp     : Exp sign Exp                             { BiOperation $1 $2 $3 }
         | '!' Exp                                  { UnOperation "!" $2 }
         | '(' Exp ')'                              { $2 }
         | var '(' ListExp ')'                      { FCall $1 $3 }
+        | read '(' Type ')'                        { Read $3 }
         | Const                                    { $1 }
         | var                                      { EVar $1 }
 
@@ -134,6 +136,7 @@ data Expr = EConst ValueType
           | BiOperation Expr String Expr
           | UnOperation String Expr
           | FCall String [Expr]
+          | Read Type
           | EVar String deriving Show
 
 data IfList = If [(Expr, Command)] Command deriving Show
