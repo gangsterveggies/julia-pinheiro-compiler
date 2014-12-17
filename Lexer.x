@@ -8,6 +8,7 @@ $digit = 0-9
 $alpha = [a-zA-Z]
 
 tokens :-
+  "#".*                                 ;
     -- Methods
   read                                  { \p s -> TokenRead p }
   println                               { \p s -> TokenPrintln p }
@@ -130,8 +131,13 @@ trim [] = []
 trim ((TokenLC p1):(TokenLC p2):ts) = (trim ((TokenLC p1) : ts))
 trim (t:ts) = t : (trim ts)
 
+cap :: [Token] -> [Token]
+cap [] = []
+cap ((TokenLC p1):ts) = ts
+cap ts = ts
+
 alexScanTokensWrapper :: String -> [Token]
-alexScanTokensWrapper str = trim (go (alexStartPos, '\n', [], str))
+alexScanTokensWrapper str = cap (trim (go (alexStartPos, '\n', [], str)))
     where go inp@(pos, _, _, str) =
               case alexScan inp 0 of
                 AlexEOF -> []

@@ -1,6 +1,8 @@
+# Prefix Sums
+
 function main() int
   a = new int [5]
-  it = 0
+  it = 0 # sds
   while it < 5
     if it == 0
       a[it] = read(int)
@@ -10,7 +12,7 @@ function main() int
     end
     it = it + 1
   end
-
+  
   it = 0
   while it < 5
     println(a[it])

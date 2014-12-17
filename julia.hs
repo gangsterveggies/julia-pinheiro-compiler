@@ -207,7 +207,7 @@ main = do
     let printParse = checkFlag PrintParse flagList
     let printTAdd = checkFlag PrintTAdd flagList
 --    putStrLn ((show rawCode) ++ "\n")
---    putStrLn ((show tokenList) ++ "\n")
+    putStrLn ((show tokenList) ++ "\n")
 --    putStrLn ((show parseTree) ++ "\n")
 --    putStrLn ((show taddCode) ++ "\n")
 --    putStrLn ((show staticCode) ++ "\n")
