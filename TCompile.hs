@@ -6,8 +6,8 @@ import qualified Data.Map as HashTable
 
 type HashTable a = HashTable.Map String a
 type FuncTable = HashTable (Type, [Type])
-data Op = OpOp String | OpFunc | OpParam Int Bool | OpCall | OpRet | OpEnd | OpJr
-        | OpAt | OpJp | OpLb | OpIfFalse | OpPrint | OpPrintLC | OpRd
+data Op = OpOp String | OpFunc | OpParam Int Bool | OpCall | OpRet | OpEnd | OpJr | OpPAt | OpGet | OpAloc Int
+        | OpAt | OpJp | OpLb | OpIfFalse | OpIfFalseDe | OpPrint | OpPrintLC | OpRd
         | OpSc | OpDeSc Bool deriving (Show)
 data Value = Const ValueType | UVar String | Label String | TVar (String, Type) | Null deriving (Show)
 type Code = (Op, Value, Value, Value)
@@ -64,15 +64,20 @@ compileCmd :: HashTable String -> FuncTable -> Type -> Int -> Command -> ([Code]
 compileCmd fMap hs ftp lbNum (While exp cmd) = ([(OpLb, Label (show lbNum), Null, Null)]
                                        ++ [(OpSc, Null, Null, Null)]
                                        ++ expCode
-                                       ++ [(OpIfFalse, UVar expVar, Label (show (lbNum + 1)), Null)]
+                                       ++ [(OpIfFalseDe, UVar expVar, Label (show (lbNum + 1)), Null)]
+                                       ++ [(OpSc, Null, Null, Null)]
                                        ++ code
                                        ++ [(OpDeSc True, Null, Null, Null)]
                                        ++ [(OpJp, Label (show lbNum), Null, Null)]
                                        ++ [(OpLb, Label (show (lbNum + 1)), Null, Null)], lbNum1 + 1)
   where (expVar, expCode, _) = compileExp fMap hs 0 exp
         (code, lbNum1) = compileCmd fMap hs ftp (lbNum + 2) cmd
-compileCmd fMap hs ftp lbNum (Attr var exp) = (expCode ++ [(OpAt, UVar var, UVar expVar, Null)], lbNum)
+compileCmd fMap hs ftp lbNum (Attr (SVar var) exp) = (expCode ++ [(OpAt, UVar var, UVar expVar, Null)], lbNum)
   where (expVar, expCode, _) = compileExp fMap hs 0 exp
+compileCmd fMap hs ftp lbNum (Attr (PVar var exp1) exp2) = (expCode1 ++ expCode2 ++ [(OpPAt, UVar var, UVar expVar1, UVar expVar2)], lbNum)
+  where (expVar1, expCode1, v1) = compileExp fMap hs 0 exp1
+        (expVar2, expCode2, _) = compileExp fMap hs v1 exp2
+compileCmd fMap hs ftp lbNum (Aloc var tp sz) = ([(OpAloc sz, TVar (var, TPointer tp), Null, Null)], lbNum)
 compileCmd fMap hs ftp lbNum (Print ls) = ((compilePrint fMap hs ls) ++ [(OpPrintLC, Null, Null, Null)], lbNum)
 compileCmd fMap hs ftp lbNum (IfCmd iflist) = compileIfList fMap hs ftp lbNum iflist
 compileCmd fMap hs ftp lbNum (Ret exp) = (expCode ++ [(OpRet, TVar (expVar, ftp), Null, Null)] ++ [(OpDeSc False, Null, Null, Null)] ++ [(OpJr, Null, Null, Null)], lbNum)
@@ -89,16 +94,21 @@ compilePrint fMap hs (exp:xs) = expCode ++ [(OpPrint, UVar expVar, Null, Null)] 
 
 compileIfList :: HashTable String -> FuncTable -> Type -> Int -> IfList -> ([Code], Int)
 compileIfList fMap hs ftp lbNum (If ifArr elseCmd) = (ifsCode
-                                          ++ elseCode
-                                          ++ [(OpLb, Label (show lbNum), Null, Null)], lbNum2)
+                                                      ++ [(OpSc, Null, Null, Null)]
+                                                      ++ elseCode
+                                                      ++ [(OpDeSc True, Null, Null, Null)]
+                                                      ++ [(OpLb, Label (show lbNum), Null, Null)], lbNum2)
     where (ifsCode, lbNum1) = compileIfs fMap hs ftp lbNum ifArr (lbNum + 1)
           (elseCode, lbNum2) = compileCmd fMap hs ftp lbNum1 elseCmd
 
 compileIfs :: HashTable String -> FuncTable -> Type -> Int -> [(Expr, Command)] -> Int -> ([Code], Int)
 compileIfs fMap hs _ endLb [] lbNum = ([], lbNum)
-compileIfs fMap hs ftp endLb (x:xs) lbNum = (expCode
-                                             ++ [(OpIfFalse, UVar expVar, Label (show lbNum), Null)]
+compileIfs fMap hs ftp endLb (x:xs) lbNum = ([(OpSc, Null, Null, Null)]
+                                             ++ expCode
+                                             ++ [(OpIfFalseDe, UVar expVar, Label (show lbNum), Null)]
+                                             ++ [(OpSc, Null, Null, Null)]
                                              ++ cmdCode
+                                             ++ [(OpDeSc True, Null, Null, Null)]
                                              ++ [(OpJp, Label (show endLb), Null, Null)]
                                              ++ [(OpLb, Label (show lbNum), Null, Null)]
                                              ++ ifsCode, lbNumF)
@@ -112,7 +122,10 @@ newVar nx = (show nx) ++ "t"
 compileExp :: HashTable String -> FuncTable -> Int -> Expr -> (String, [Code], Int)
 compileExp _ _ nx (EConst bl) = (var, [(OpAt, UVar var, Const bl, Null)], nx + 1)
     where var = newVar nx
-compileExp _ _ nx (EVar var) = (var, [], nx)
+compileExp _ _ nx (EVar (SVar var)) = (var, [], nx)
+compileExp fMap hs nx (EVar (PVar var exp)) = (nvar, expCode ++ [(OpGet, UVar nvar, UVar expVar, UVar var)], nx1)
+  where nvar = newVar nx
+        (expVar, expCode, nx1) = compileExp fMap hs (nx + 1) exp
 compileExp fMap hs nx (FCall str1 args) = (var, paramsCode
                                           ++ [(OpCall, TVar (var, fType), UVar str, Null)], nx1 + 1)
   where str = fromJust ("function " ++ str1 ++ " not defined") (HashTable.lookup str1 fMap)

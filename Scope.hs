@@ -25,7 +25,7 @@ lookup var (st, _)
   | Stack.isEmpty st = Nothing
   | otherwise = let hs = fst3 (Stack.top st)
                 in let ans = HashTable.lookup var hs
-                   in if ans == Nothing || (last3 (Stack.top st)) then Scope.lookup var (Stack.pop st, 0)
+                   in if ans == Nothing && (last3 (Stack.top st)) then Scope.lookup var (Stack.pop st, 0)
                       else ans
 
 size :: Scope -> Int

@@ -9,7 +9,7 @@ import TCompile
 import StaticAnalysis
 import Scope
 
-setVariable :: Scope -> Int -> String -> Type-> (String, Scope)
+setVariable :: Scope -> Int -> String -> Type -> (String, Scope)
 setVariable sc register var tp
   | varV == Nothing = ("\taddi $sp, $sp, -4\n" ++ "\tla $t" ++ (show register) ++ ", 0($sp)\n", Scope.insert var sc)
   | otherwise = let varN = 4 * (maxN - 1 - (fromJust "variable not defined" varV))
@@ -25,6 +25,8 @@ getValue :: Scope -> Int -> Value -> String
 getValue _ register (Const (VTInt a)) = "\tli $t" ++ (show register) ++ ", " ++ (show a) ++ "\n"
 getValue _ register (Const (VTFloat a)) = "\tli.s $f" ++ (show register) ++ ", " ++ (show a) ++ "\n"
 getValue _ register (Const (VTBool a)) = "\tli $t" ++ (show register) ++ ", " ++ (show (boolToInt a)) ++ "\n"
+getValue sc register (TVar (a, TPointer tp)) = "\t" ++ (getLoadType TInt) ++  " $" ++ (getRegisterType TInt) ++ (show register) ++ ", " ++ (show var) ++ "($sp)\n"
+  where var = getVariable sc a
 getValue sc register (TVar (a, tp)) = "\t" ++ (getLoadType tp) ++  " $" ++ (getRegisterType tp) ++ (show register) ++ ", " ++ (show var) ++ "($sp)\n"
   where var = getVariable sc a
 
@@ -47,6 +49,16 @@ translate sc (OpLb, Label s, Null, Null) = ("L" ++ s ++ ":\n", sc)
 translate sc (OpJp, Label s, Null, Null) = ("\tj L" ++ s ++ "\n", sc)
 translate sc (OpFunc, TVar (s, _), Null, Null) = (s ++ ":\n" ++ getCode ++ "\tsw $ra, ($t0)\n\n", sc1)
   where (getCode, sc1) = setVariable sc 0 "0r" TInt
+translate sc (OpPAt, TVar (var, TPointer tp), varOffset, varValue) = (getCode1 ++ getCode2 ++ getCode3 ++ "\tmul $t2, $t2, 4\n\tlw $t3, 0($t0)\n\tadd $t3, $t3, $t2\n\t" ++ (getStoreType tp) ++ " $" ++ (getRegisterType tp) ++ "1, 0($t3)\n\n", sc1)
+  where getCode3 = getValue sc 1 varValue
+        getCode2 = getValue sc 2 varOffset
+        (getCode1, sc1) = setVariable sc 0 var tp
+translate sc (OpGet, TVar (var, tp), varOffset, varValue) = (getCode1 ++ getCode2 ++ getCode3 ++ "\tmul $t2, $t2, 4\n\tadd $t4, $t4, $t2\n\t" ++ (getLoadType tp) ++ " $" ++ (getRegisterType tp) ++ "3, 0($t4)\n\t" ++ (getStoreType tp) ++ " $" ++ (getRegisterType tp) ++ "3, 0($t0)\n\n", sc1)
+  where getCode3 = getValue sc 4 varValue
+        getCode2 = getValue sc 2 varOffset
+        (getCode1, sc1) = setVariable sc 0 var tp
+translate sc (OpAloc sz, TVar (var, tp), Null, Null) = (getCode ++ "\tli $v0, 9\n\tli $a0, " ++ (show (sz * 4)) ++ "\n\tsyscall\n\n\tsw $v0, 0($t0)\n\n", sc1)
+  where (getCode, sc1) = setVariable sc 0 var TInt
 translate sc (OpParam vl False, TVar (var, tp), Null, Null) = (getCode ++ "\tlw $a" ++ (show vl) ++ ", ($t0)\n\n", sc1)
   where (getCode, sc1) = setVariable sc 0 var tp
 translate sc (OpParam vl True, TVar (var, tp), Null, Null) = (getCode ++ "\tsw $a" ++ (show vl) ++ ", ($t0)\n\n", sc1)
@@ -55,7 +67,6 @@ translate sc (OpCall, TVar (var, tp), UVar f, Null) = ("\tjal " ++ f ++ "\n\n" +
   where (getCode, sc1) = setVariable sc 0 var tp
 translate sc (OpRd, TVar (var, tp), Null, Null) = ("\tli $v0, " ++ (getReadType tp) ++ "\n\tsyscall\n\n" ++ getCode ++ "\t" ++ (getStoreType tp) ++ " $" ++ (getReturnType tp) ++ "0, ($t0)\n\n", sc1)
   where (getCode, sc1) = setVariable sc 0 var tp
-        
 translate sc (OpJr, Null, Null, Null) = ("\tjr $ra\n\n", sc)
 translate sc (OpRet, TVar (var, tp), Null, Null) = (getCode1 ++ "\tlw $v0, ($t0)\n" ++ getCode2 ++ "\tlw $ra, ($t1)\n\n", sc2)
   where (getCode1, sc1) = setVariable sc 0 var tp
@@ -63,11 +74,15 @@ translate sc (OpRet, TVar (var, tp), Null, Null) = (getCode1 ++ "\tlw $v0, ($t0)
 translate sc (OpEnd, Null, Null, Null) = ("\tli $v0, 10\n\tsyscall\n\n", sc)
 translate sc (OpIfFalse, x, Label s, Null) = (getCode ++ "\tbeqz $t0, L" ++ s ++ "\n\n", sc)
   where getCode = getValue sc 0 x
+translate sc (OpIfFalseDe, x, Label s, Null) = (getCode ++ "\taddi $sp, $sp, " ++ (show (4 * curN)) ++ "\n\n\tbeqz $t0, L" ++ s ++ "\n\n", Scope.descope sc)
+  where getCode = getValue sc 0 x
+        curN = Scope.topSize sc
 translate sc (OpPrintLC, Null, Null, Null) = ("\tla $a0, lc\n\tli $v0, 4\n\tsyscall\n\n", sc)
 translate sc (OpPrint, x, Null, Null)
   | tp == TInt = (getCode ++ "\tli $v0, 1\n\tmove $a0, $t0\n\tsyscall\n\n", sc)
   | tp == TBool = (getCode ++ "\tli $v0, 1\n\tmove $a0, $t0\n\tsyscall\n\n", sc)
   | tp == TFloat = (getCode ++ "\tli $v0, 2\n\tmov.s $f12, $f0\n\tsyscall\n\n", sc)
+  | tp == TPointer TInt = (getCode ++ "\tli $v0, 1\n\tmove $a0, $t0\n\tsyscall\n\n", sc)
   | otherwise = ("", sc)
   where getCode = getValue sc 0 x
         tp = getValueType x
@@ -184,16 +199,18 @@ main = do
     let tokenList = alexScanTokensWrapper rawCode
     let parseTree = parse tokenList
     let taddCode = compile parseTree
+--    let taddCode = [(OpCall,TVar ("0t",TInt),UVar "F1",Null),(OpEnd,Null,Null,Null),(OpSc,UVar "0j",Null,Null),(OpFunc,TVar ("F1",TInt),Null,Null),(OpAloc 5,TVar ("a",TPointer TInt),Null,Null),(OpAt,UVar "0t",Const (VTInt 0),Null),(OpAt,UVar "it",UVar "0t",Null),(OpLb,Label "0",Null,Null),(OpSc,Null,Null,Null),(OpAt,UVar "0t",Const (VTInt 5),Null),(OpOp "<",UVar "1t",UVar "it",UVar "0t"),(OpIfFalse,UVar "1t",Label "1",Null),(OpAt,UVar "0t",Const (VTInt 0),Null),(OpOp "!=",UVar "1t",UVar "it",UVar "0t"),(OpIfFalse,UVar "1t",Label "3",Null),(OpRd,TVar ("0t",TInt),Null,Null),(OpAt,UVar "2t",Const (VTInt 1),Null),(OpOp "-",UVar "3t",UVar "it",UVar "2t"),(OpGet,UVar "1t",UVar "3t",UVar "a"),(OpOp "+",UVar "4t",UVar "0t",UVar "1t"),(OpPAt,UVar "a",UVar "it",UVar "4t"),(OpJp,Label "2",Null,Null),(OpLb,Label "3",Null,Null),(OpRd,TVar ("0t",TInt),Null,Null),(OpPAt,UVar "a",UVar "it",UVar "0t"),(OpLb,Label "2",Null,Null),(OpAt,UVar "0t",Const (VTInt 1),Null),(OpOp "+",UVar "1t",UVar "it",UVar "0t"),(OpAt,UVar "it",UVar "1t",Null),(OpDeSc True,Null,Null,Null),(OpJp,Label "0",Null,Null),(OpLb,Label "1",Null,Null),(OpAt,UVar "1t",Const (VTInt 4),Null),(OpGet,UVar "0t",UVar "1t",UVar "a"),(OpPrint,UVar "0t",Null,Null),(OpPrintLC,Null,Null,Null),(OpAt,UVar "0t",Const (VTInt 0),Null),(OpRet,TVar ("0t",TInt),Null,Null),(OpDeSc False,Null,Null,Null),(OpJr,Null,Null,Null),(OpDeSc True,Null,Null,Null)]
+
     let staticCode = staticAnalysis taddCode
     let mipsCode = "\t.text\n" ++ (mipsify hs staticCode)
 
     let printParse = checkFlag PrintParse flagList
     let printTAdd = checkFlag PrintTAdd flagList
---  putStrLn ((show rawCode) ++ "\n")
---  putStrLn ((show tokenList) ++ "\n")
---  putStrLn ((show parseTree) ++ "\n")
---  putStrLn ((show taddCode) ++ "\n")
---  putStrLn ((show staticCode) ++ "\n")
+--    putStrLn ((show rawCode) ++ "\n")
+--    putStrLn ((show tokenList) ++ "\n")
+--    putStrLn ((show parseTree) ++ "\n")
+--    putStrLn ((show taddCode) ++ "\n")
+--    putStrLn ((show staticCode) ++ "\n")
     writeFile outputFile (mipsCode)
     
     if printParse then putStrLn ("Parse Tree:\n" ++ (show parseTree) ++ "\n")

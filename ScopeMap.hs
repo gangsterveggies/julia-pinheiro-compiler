@@ -24,7 +24,7 @@ lookup var st
   | Stack.isEmpty st = Nothing
   | otherwise = let hs = fst (Stack.top st)
                 in let ans = HashTable.lookup var hs
-                   in if ans == Nothing || (snd (Stack.top st)) then ScopeMap.lookup var (Stack.pop st)
+                   in if ans == Nothing && (snd (Stack.top st)) then ScopeMap.lookup var (Stack.pop st)
                       else ans
 
 {- main = do

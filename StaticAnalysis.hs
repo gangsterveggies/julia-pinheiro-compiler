@@ -27,6 +27,18 @@ sAnalyse sc (OpPrint, UVar var, Null, Null) = ((OpPrint, TVar (var, tp), Null, N
   where tp = getType (UVar var) sc
 sAnalyse sc (OpIfFalse, UVar var, lb, Null) = ((OpIfFalse, TVar (var, tp), lb, Null), sc)
   where tp = getType (UVar var) sc
+sAnalyse sc (OpIfFalseDe, UVar var, lb, Null) = ((OpIfFalseDe, TVar (var, tp), lb, Null), ScopeMap.descope sc)
+  where tp = getType (UVar var) sc
+sAnalyse sc (OpPAt, UVar var1, UVar var2, UVar var3) = ((OpPAt, TVar (var1, TPointer tp), TVar (var2, TInt), TVar (var3, tp)), sc)
+  where tp = getType (UVar var3) sc
+        _ = fromJust ("") (setType var1 (TPointer tp) sc)
+        _ = fromJust ("variable in array offset needs to be of type " ++ (show TInt)) (setType var2 TInt sc)
+sAnalyse sc (OpGet, UVar var1, UVar var3, UVar var2) = ((OpGet, TVar (var1, tp), TVar (var3, TInt), TVar (var2, TPointer tp)), sc2)
+  where (TPointer tp) = getType (UVar var2) sc
+        sc1 = fromJust ("") (setType var1 tp sc)
+        sc2 = fromJust ("variable in array offset needs to be of type " ++ (show TInt)) (setType var3 TInt sc1)
+sAnalyse sc (OpAloc sz, TVar (var, tp), Null, Null) = ((OpAloc sz, TVar (var, tp), Null, Null), sc1)
+  where sc1 = fromJust ("cannot convert variable '" ++ var ++ "' to " ++ (show tp)) (setType var tp sc)
 sAnalyse sc (OpParam ct bl, TVar (var, tp), Null, Null) = ((OpParam ct bl, TVar (var, tp), Null, Null), sc1)
   where sc1 = fromJust ("variable '" ++ var ++ "' called in function as " ++ (show tp)) (setType var tp sc)
 sAnalyse sc (OpCall, TVar (var, tp), vl, Null) = ((OpCall, TVar (var, tp), vl, Null), sc1)
@@ -60,7 +72,7 @@ sArithmetic sc (op, UVar var, y, z) = ((op, TVar (var, tp1), convertValue sc y, 
         sc2 = fromJust ("invalid operation with " ++ (show tp1) ++ " and " ++ (show tp2)) (setType var tp2 sc1)
 
 sBoolExp :: ScopeStack -> Code -> (Code, ScopeStack)
-sBoolExp sc (op, UVar var, y, z) = fromJust"" (testAndError (tp1 == tp2 && tp1 /= TBool) ("invalid operation with " ++ (show tp1) ++ " and " ++ (show tp2)) ((op, TVar (var, TBool), convertValue sc y, convertValue sc z), sc1))
+sBoolExp sc (op, UVar var, y, z) = fromJust "" (testAndError (tp1 == tp2 && tp1 /= TBool) (" invalid operation with " ++ (show tp1) ++ " and " ++ (show tp2)) ((op, TVar (var, TBool), convertValue sc y, convertValue sc z), sc1))
   where tp1 = getType y sc
         tp2 = getType z sc
         sc1 = fromJust ("cannot convert variable '" ++ var ++ "' to " ++ (show TBool)) (setType var TBool sc)

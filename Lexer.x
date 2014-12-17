@@ -14,6 +14,8 @@ tokens :-
     -- Attributions
   \=                                    { \p s -> TokenAtr p }
     -- Expressions
+  \[                                    { \p s -> TokenLP p }
+  \]                                    { \p s -> TokenRP p }
   \(                                    { \p s -> TokenLB p }
   \)                                    { \p s -> TokenRB p }
   [\+\-\*\/\^\%\!\|\&\=\<\>]+           { \p s -> TokenOp p s }
@@ -31,6 +33,7 @@ tokens :-
   float                                 { \p s -> TokenTFloat p }
   bool                                  { \p s -> TokenTBool p }
     -- Miscelaneous
+  new                                   { \p s -> TokenNew p }
   \,                                    { \p s -> TokenComma p }
   end                                   { \p s -> TokenEnd p }
   \;                                    { \p s -> TokenSep p }
@@ -50,6 +53,8 @@ data Token = TokenInt AlexPosn Int -- Types and Variables
            | TokenBool AlexPosn Bool
      	   | TokenVar AlexPosn String
              -- Arithmetic Expressions
+           | TokenLP AlexPosn -- [
+           | TokenRP AlexPosn -- ]
            | TokenLB AlexPosn -- (
            | TokenRB AlexPosn -- )
            | TokenOp AlexPosn String
@@ -73,6 +78,7 @@ data Token = TokenInt AlexPosn Int -- Types and Variables
            | TokenTBool AlexPosn
              -- Miscelaneous
            | TokenComma AlexPosn
+           | TokenNew AlexPosn
            | TokenEnd AlexPosn
            | TokenSep AlexPosn -- ;
            | TokenLC  AlexPosn -- \n
@@ -84,6 +90,10 @@ tokenPosn (TokenBool p _) = p
 tokenPosn (TokenVar p _) = p
              -- Arithmetic Expressions
 tokenPosn (TokenOp p _) = p
+tokenPosn (TokenLP p) = p
+tokenPosn (TokenRP p) = p
+tokenPosn (TokenLB p) = p
+tokenPosn (TokenRB p) = p
              -- Methods
 tokenPosn (TokenRead p) = p
 tokenPosn (TokenPrintln p) = p
@@ -104,6 +114,7 @@ tokenPosn (TokenTFloat p) = p
 tokenPosn (TokenTBool p) = p
              -- Miscelaneous
 tokenPosn (TokenComma p) = p
+tokenPosn (TokenNew p) = p
 tokenPosn (TokenEnd p) = p
 tokenPosn (TokenSep p) = p
 tokenPosn (TokenLC p) = p

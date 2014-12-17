@@ -20,6 +20,8 @@ import Lexer
   '%'                                   { TokenOp _ "%" }
   '('                                   { TokenLB _ }
   ')'                                   { TokenRB _ }
+  '['                                   { TokenLP _ }
+  ']'                                   { TokenRP _ }
     -- Boolean Expressions
   '!'                                   { TokenOp _ "!" }
   '||'                                  { TokenOp _ "||" }
@@ -53,6 +55,7 @@ import Lexer
   while                                 { TokenWhile _ }
     -- Miscelaneous
   ','                                   { TokenComma _ }
+  new                                   { TokenNew _ }
   end                                   { TokenEnd _ }
   ';'                                   { TokenSep _ }
   lc                                    { TokenLC _ }
@@ -89,7 +92,9 @@ Cmd     : if Exp lc Cmd IfE end                    { IfCmd (If (($2, $4) : $5) N
         | if Exp lc Cmd IfE else Cmd end           { IfCmd (If (($2, $4) : $5) $7) }
         | while Exp lc Cmd end                     { While $2 $4 }
         | return Exp                               { Ret $2 }
-        | var '=' Exp                              { Attr $1 $3 }
+        | var '=' Exp                              { Attr (SVar $1) $3 }
+        | var '[' Exp ']' '=' Exp                  { Attr (PVar $1 $3) $6 }
+        | var '=' new Type '[' int ']'             { Aloc $1 $4 $6 }
         | println '(' ListExp ')'                  { Print $3 }
         | Cmd lc Cmd                               { Seq $1 $3 }
         | Cmd lc                                   { $1 }
@@ -125,25 +130,32 @@ Exp     : Exp sign Exp                             { BiOperation $1 $2 $3 }
         | var '(' ListExp ')'                      { FCall $1 $3 }
         | read '(' Type ')'                        { Read $3 }
         | Const                                    { $1 }
-        | var                                      { EVar $1 }
+        | Var                                      { EVar $1 }
+
+Var     : var                                      { SVar $1 }
+        | var '[' Exp ']'                          { PVar $1 $3 }
 
 {
 
-data Type = TInt | TFloat | TBool deriving (Show, Eq)
-data ValueType = VTInt Int | VTFloat Float | VTBool Bool deriving (Show)
+data Type = TInt | TFloat | TBool | TPointer Type  deriving (Show, Eq)
+data ValueType = VTInt Int | VTFloat Float | VTBool Bool | VTPointer Int deriving (Show)
+
+data Var = SVar String
+         | PVar String Expr deriving (Show)
 
 data Expr = EConst ValueType
           | BiOperation Expr String Expr
           | UnOperation String Expr
           | FCall String [Expr]
           | Read Type
-          | EVar String deriving Show
+          | EVar Var deriving Show
 
 data IfList = If [(Expr, Command)] Command deriving Show
 
 data Command = IfCmd IfList
              | While Expr Command
-             | Attr String Expr
+             | Attr Var Expr
+             | Aloc String Type Int
              | Ret Expr
              | Print [Expr]
              | Seq Command Command
